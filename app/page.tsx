@@ -1,52 +1,166 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { publicDocuments, supportEmail } from "@/lib/site";
 
 export const metadata: Metadata = {
+  title: "約610万分の1を体験する数字くじゲーム",
+  description: "1〜43から6つを選び、1等確率1/6,096,454の6/43方式に挑戦する数字抽せんシミュレーション。現金・景品は受け取れません。",
   alternates: { canonical: "/" },
 };
 
-const features = [
-  ["01", "가상 번호 선택", "게임 안에서 번호를 고르고 매주 결과를 확인하세요. 실제 복권 구매나 결제는 포함하지 않습니다."],
-  ["02", "나만의 진행 기록", "게임 진행, 구매 통계, 튜토리얼 상태와 설정을 기기 안에 저장하고 이어서 즐길 수 있습니다."],
-  ["03", "익명 랭킹", "원할 때 닉네임으로 가상 게임 기록을 공유하고 다른 이용자의 기록을 살펴볼 수 있습니다."],
+const playSteps = [
+  ["01", "6つ選ぶ", "1〜43から好きな数字を6つ選択。空欄は自動で選べるので、すぐに始められます。"],
+  ["02", "抽せんする", "赤いボタンを押して結果を確認。1口ごとの確率は、強化しても変わりません。"],
+  ["03", "記録して育てる", "はずれも当せんも記録。くじ枠と自動抽せんを育て、挑戦回数を増やします。"],
 ] as const;
 
-const steps = [
-  ["01", "번호 선택", "원하는 번호를 고르고 게임 속 가상 티켓을 준비합니다."],
-  ["02", "결과 확인", "매주 진행되는 게임 결과와 나의 기록 변화를 확인합니다."],
-  ["03", "기록 이어가기", "통계와 랭킹을 살펴보며 다음 가상 도전을 이어갑니다."],
+const screenshots = [
+  ["/marketing/screen-01.png", "ゲーム内1等確率、約610万分の1", "抽せん結果と数字の出現回数"],
+  ["/marketing/screen-04.png", "6つ選んで、いざ抽せん", "空欄は自動選択"],
+  ["/marketing/screen-02.png", "挑戦回数を少しずつ育てる", "くじ枠の追加"],
+  ["/marketing/screen-03.png", "抽せんは、やがて自動へ", "14種類の自動抽せんアイテム"],
+  ["/marketing/screen-05.png", "ゲーム内1等まで、何回？", "結果とランキング"],
 ] as const;
 
 export default function HomePage() {
   return (
-    <div className="overflow-hidden">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">본문으로 건너뛰기</a>
+    <div className="overflow-x-clip bg-[#fffaf0]">
       <SiteHeader />
       <main id="main">
-        <section className="bg-[radial-gradient(circle_at_14%_10%,rgba(89,111,245,.25),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(255,216,75,.18),transparent_30%),linear-gradient(135deg,#101c40_0%,#1d2d64_47%,#544cc8_100%)] py-20 text-white sm:py-24 lg:py-28">
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:gap-16 lg:px-8">
-            <div><p className="inline-flex items-center gap-2 text-sm font-extrabold tracking-[.05em] text-[#d9d9ff]"><span className="h-0.5 w-6 bg-lotto-yellow" />4L TREE · LOTTO LIFE</p><h1 className="mt-4 break-keep-all text-5xl font-black leading-[1.08] tracking-[-.07em] sm:text-6xl lg:text-7xl">번호를 고르고,<br /><span className="text-lotto-yellow">나만의 기록</span>을<br />만들어 보세요.</h1><p className="mt-6 max-w-xl break-keep-all text-lg leading-8 text-[#dce4ff]">로또 인생은 실제 복권 구매·당첨금 지급·환전과 무관한 무료 가상 시뮬레이션 게임입니다. 매주 번호를 선택하고, 게임 속 기록과 랭킹을 즐겨보세요.</p><div className="mt-8 flex flex-wrap gap-3"><a href="#how-to-play" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-lotto-yellow px-5 font-extrabold text-lotto-navy transition hover:-translate-y-0.5 hover:shadow-lg">게임 알아보기 ↓</a><Link href="/support" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/35 bg-white/5 px-5 font-extrabold text-white transition hover:-translate-y-0.5 hover:shadow-lg">고객지원</Link></div><ul className="mt-7 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#c5d2ff]"><li>✓ 무료 가상 게임</li><li>✓ 실제 금전 거래 없음</li><li>✓ Android 출시 준비 중</li></ul></div>
-            <div className="ticket-shine relative mx-auto min-h-[390px] w-full max-w-[430px] rotate-0 overflow-hidden rounded-[30px] border border-white/30 p-7 shadow-ticket sm:rotate-[2.2deg]"><div className="absolute -right-16 -top-24 size-64 rounded-full border-[44px] border-lotto-yellow/15" /><div className="relative flex items-center justify-between text-xs font-extrabold tracking-[.08em]"><span>LOTTO LIFE</span><strong className="text-base text-lotto-yellow">WEEK 52</strong></div><h2 className="relative mt-7 text-2xl font-black leading-tight tracking-[-.05em]">오늘의 번호를<br />선택해 보세요</h2><p className="relative mt-2 text-sm text-[#d5dfff]">게임 안에서 만들어지는 가상 번호와 기록입니다.</p><div className="relative mt-7 grid max-w-[310px] grid-cols-3 gap-3" aria-label="예시 번호 4, 12, 19, 27, 33, 41">{["4", "12", "19", "27", "33", "41"].map((number, index) => <span key={number} className={`grid aspect-square w-[72px] place-items-center rounded-full text-2xl font-black shadow-lg shadow-slate-950/20 ${index === 1 ? "bg-[#3d8ce8] text-white" : index === 2 ? "bg-lotto-yellow text-[#3e3100]" : index === 4 ? "bg-[#f16a6a] text-white" : "bg-white text-lotto-navy"}`}>{number}</span>)}</div><div className="absolute inset-x-7 bottom-6 flex justify-between border-t border-dashed border-white/40 pt-4 text-xs text-[#e5ebff]"><span>MY LOTTO RECORD</span><strong className="text-lotto-yellow">가상 1등 도전</strong></div></div>
+        <section className="relative border-b border-[#d8b563]/45 bg-[#fff7e3] py-14 sm:py-20 lg:py-24">
+          <div className="mx-auto grid w-full max-w-7xl gap-x-14 gap-y-8 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
+            <div className="relative z-10 lg:col-start-1 lg:row-start-1">
+              <p className="eyebrow">6/43 確率体験</p>
+              <h1 className="mt-5 text-5xl font-black leading-[1.03] tracking-[-.075em] text-[#281407] sm:text-6xl lg:text-[4.25rem]">
+                <span className="whitespace-nowrap">610万分の1を、</span><br /><span className="whitespace-nowrap text-[#b71912]">体験しよう。</span>
+              </h1>
+            </div>
+
+            <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
+              <Image src="/marketing/hero-jp.png" alt="" width={1795} height={876} priority className="h-auto w-full rounded-2xl shadow-[0_30px_80px_rgba(67,36,5,.22)]" />
+            </div>
+
+            <div className="relative z-10 lg:col-start-1 lg:row-start-2">
+              <p className="mt-6 max-w-xl text-pretty text-lg font-medium leading-8 text-[#644d36] sm:text-xl">
+                1〜43から6つを選び、抽せんして、記録する。<br className="hidden sm:block" />あなたは何回目で、ゲーム内1等に出会えるでしょうか。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a href="#how-to-play" className="button-primary">遊び方を見る</a>
+                <a href="#screens" className="button-secondary">ゲーム画面を見る</a>
+              </div>
+              <dl className="mt-10 grid max-w-xl grid-cols-2 border-y border-[#d8b563] py-5 sm:grid-cols-3 sm:divide-x sm:divide-[#d8b563]">
+                <div className="col-span-2 border-b border-[#d8b563] pb-4 text-center sm:col-span-1 sm:border-b-0 sm:px-4 sm:text-left"><dt className="text-xs font-bold text-[#705735]">ゲーム内1等</dt><dd className="mt-1 whitespace-nowrap text-xl font-black text-[#2a180b]">1 / 6,096,454</dd></div>
+                <div className="mt-4 border-r border-[#d8b563] pr-4 sm:mt-0 sm:border-r-0 sm:px-4"><dt className="text-xs font-bold text-[#705735]">方式</dt><dd className="mt-1 text-2xl font-black text-[#2a180b]">6 / 43</dd></div>
+                <div className="mt-4 pl-4 sm:mt-0"><dt className="text-xs font-bold text-[#705735]">現金・景品</dt><dd className="mt-1 text-2xl font-black text-[#2a180b]">なし</dd></div>
+              </dl>
+            </div>
           </div>
         </section>
 
-        <section className="bg-white py-20 sm:py-24" id="features"><div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"><SectionHeading label="게임 소개" title={<>가볍게 시작해도,<br />기록은 꾸준히 쌓입니다.</>} description="번호 선택부터 게임 진행, 나만의 통계와 랭킹 기록까지. 짧게 즐겨도 다음 주가 기다려지는 흐름을 만들었습니다." /><div className="grid gap-4 md:grid-cols-3">{features.map(([number, title, description]) => <article key={number} className="rounded-[18px] border border-slate-200 bg-white p-7 shadow-sm"><span className="grid size-11 place-items-center rounded-[14px] bg-gradient-to-br from-lotto-violet to-lotto-blue text-sm font-black text-white">{number}</span><h3 className="mt-5 text-lg font-black tracking-[-.04em]">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{description}</p></article>)}</div><div className="mx-auto mt-10 grid max-w-5xl grid-cols-[auto_1fr] gap-4 rounded-2xl border border-[#e8d998] bg-[#fff9df] p-5 text-[#644d00]"><strong className="text-lg">!</strong><p className="text-sm leading-6"><b>안내</b> 로또 인생의 금액·번호·당첨 기록은 모두 게임 안에서 생성되는 가상 정보입니다. 실제 복권 발행·판매 기관과 제휴하거나 이를 대리하지 않습니다.</p></div></div></section>
+        <section id="how-to-play" className="bg-[#fffaf0] py-16 sm:py-24">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="max-w-3xl">
+              <p className="eyebrow">遊び方</p>
+              <h2 className="section-title">選んで、回して、<br />また挑む。</h2>
+              <p className="section-copy">予想も、必勝法もありません。好きな数字で、長い挑戦を始めましょう。</p>
+            </div>
+            <div className="mt-12 grid border-y border-[#d9bd82] md:grid-cols-3 md:divide-x md:divide-[#d9bd82]">
+              {playSteps.map(([number, title, description]) => (
+                <article key={number} className="group border-b border-[#d9bd82] py-8 last:border-b-0 md:border-b-0 md:px-8 md:first:pl-0 md:last:pr-0">
+                  <span className="font-serif text-5xl font-bold text-[#a16f22]">{number}</span>
+                  <h3 className="mt-5 text-2xl font-black tracking-[-.04em] text-[#281407]">{title}</h3>
+                  <p className="mt-3 leading-7 text-[#715c45]">{description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        <section className="bg-[#f0f3fb] py-20 sm:py-24" id="how-to-play"><div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"><SectionHeading label="즐기는 방법" title={<>세 단계로<br />바로 시작하세요.</>} description="복잡한 절차 없이 게임을 열고, 번호를 선택하고, 가상 기록을 쌓아 보세요." /><div className="grid gap-5 md:grid-cols-3">{steps.map(([number, title, description]) => <article key={number} className="rounded-[18px] bg-white p-7"><span className="grid size-9 place-items-center rounded-full bg-[#eeecff] text-xs font-black text-lotto-violet">{number}</span><h3 className="mt-5 text-lg font-black tracking-[-.04em]">{title}</h3><p className="mt-2 text-slate-500">{description}</p></article>)}</div></div></section>
+        <section id="screens" className="bg-[#0b2b65] py-16 text-white sm:py-24">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <p className="eyebrow !text-[#f4c85c]">ゲーム画面</p>
+                <h2 className="mt-4 text-balance text-4xl font-black leading-tight tracking-[-.06em] sm:text-6xl">押すたび進む、<br />数字くじ生活。</h2>
+              </div>
+              <p className="max-w-md leading-7 text-[#cbd8f0]">実際のゲーム画面をご紹介します。数字選択から抽せん、育成、自動化、ランキングまで、挑戦のすべてを一つの記録に残せます。</p>
+            </div>
+            <p className="mt-8 text-sm font-bold text-[#cbd8f0] sm:hidden">横にスワイプして、5つの画面をご覧ください。</p>
+            <div tabIndex={0} aria-label="ゲーム画面ギャラリー、全5枚" className="hide-scrollbar -mx-4 mt-5 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4c85c] sm:-mx-6 sm:mt-12 sm:px-6 lg:-mx-8 lg:px-8">
+              {screenshots.map(([src, title, description], index) => (
+                <figure key={src} className="w-[76vw] max-w-[330px] shrink-0 snap-center sm:w-[320px]">
+                  <div className="overflow-hidden rounded-[1.75rem] border-4 border-[#e5bd5b] bg-black shadow-[0_24px_55px_rgba(0,0,0,.35)]">
+                    <Image src={src} alt={`${title} — ${description}`} width={941} height={1672} sizes="(max-width: 640px) 76vw, 320px" className="h-auto w-full" />
+                  </div>
+                  <figcaption className="mt-5"><span className="text-xs font-black text-[#f4c85c]">0{index + 1}</span><strong className="mt-1 block text-lg">{title}</strong><span className="mt-1 block text-sm text-[#9eb3d7]">{description}</span></figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        <section className="bg-white py-20 sm:py-24" id="documents"><div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"><SectionHeading label="공개 문서" title={<>서비스 이용에 필요한<br />안내를 투명하게 제공합니다.</>} description="개인정보 처리, 이용약관, 고객지원과 계정·데이터 삭제에 관한 내용을 확인할 수 있습니다." /><div className="grid gap-4 sm:grid-cols-2">{publicDocuments.map((document) => <Link key={document.href} href={document.href} className="group flex min-h-28 items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-1 hover:border-lotto-violet/40 hover:shadow-card"><span><small className="block text-xs font-black tracking-[.1em] text-lotto-violet">{document.eyebrow}</small><strong className="mt-1 block text-lg tracking-[-.04em]">{document.title}</strong></span><span className="text-xl text-lotto-violet transition group-hover:translate-x-1">→</span></Link>)}</div></div></section>
+        <section id="experience" className="bg-[#15100c] py-16 text-white sm:py-24">
+          <div className="mx-auto grid w-full max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:items-end lg:px-8">
+            <div>
+              <p className="eyebrow !text-[#e8bd5d]">約610万分の1の遠さ</p>
+              <h2 className="mt-4 text-balance text-4xl font-black leading-tight tracking-[-.06em] sm:text-6xl">当たらなさまで、<br />楽しもう。</h2>
+            </div>
+            <div className="border-l-2 border-[#b71912] pl-6 sm:pl-8">
+              <p className="text-xl font-bold leading-9 text-[#f7e8cf]">強化しても、1口ごとの当たりやすさは変わりません。</p>
+              <p className="mt-3 max-w-2xl leading-7 text-[#bcae9f]">増えるのは、一度に試せる口数と挑戦回数。約610万分の1という遠さと、ついにゲーム内1等が出た瞬間の驚きを、正直に楽しむゲームです。</p>
+            </div>
+          </div>
+        </section>
 
-        <section className="bg-[#f0f3fb] py-20 sm:py-24"><div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8"><div className="grid gap-6 rounded-[28px] bg-gradient-to-br from-[#142550] to-[#3d46a5] p-8 text-white sm:grid-cols-[1fr_auto] sm:items-center sm:p-10"><div><h2 className="break-keep-all text-3xl font-black tracking-[-.06em]">도움이 필요하신가요?</h2><p className="mt-2 text-[#ced7fa]">앱 사용, 광고, 랭킹, 개인정보 관련 문의를 고객지원으로 보내 주세요.</p></div><a href={`mailto:${supportEmail}?subject=%5B%EB%A1%9C%EB%98%90%20%EC%9D%B8%EC%83%9D%20%EB%AC%B8%EC%9D%98%5D`} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-lotto-yellow px-5 font-extrabold text-lotto-navy transition hover:-translate-y-0.5 hover:shadow-lg">이메일 문의하기</a></div></div></section>
+        <section className="bg-[#f6ead0] py-16 sm:py-24">
+          <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
+            <div>
+              <p className="eyebrow">確率はそのまま、挑戦回数は育つ</p>
+              <h2 className="section-title">確率はそのまま。<br />挑戦回数は育つ。</h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <article className="rounded-[1.5rem] border border-[#d6b66f] bg-[#fffaf0] p-7">
+                <p className="text-sm font-black text-[#b71912]">くじ枠</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">一度に試せる口数を増やす</h3><p className="mt-3 leading-7 text-[#715c45]">ゲーム内の小さな当せんを重ねて、毎回使えるくじ枠を追加できます。</p>
+              </article>
+              <article className="rounded-[1.5rem] border border-[#d6b66f] bg-[#fffaf0] p-7">
+                <p className="text-sm font-black text-[#b71912]">自動抽せん</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">14種類のアイテムを解放</h3><p className="mt-3 leading-7 text-[#715c45]">自動抽せんアイテムを集めると、アプリを開いている間、一定間隔で抽せんが進みます。</p>
+              </article>
+              <article className="rounded-[1.5rem] border border-[#d6b66f] bg-[#fffaf0] p-7 sm:col-span-2">
+                <p className="text-sm font-black text-[#b71912]">ゲーム内1等のその先</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">高速シミュレーターを解放</h3><p className="mt-3 max-w-2xl leading-7 text-[#715c45]">本編でゲーム内1等を達成すると、確率の途方もなさをさらに速く体験できるシミュレーターが開きます。</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white py-16 sm:py-24" id="documents">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
+              <div>
+                <p className="eyebrow">安心して遊ぶために</p>
+                <h2 className="section-title">ゲーム内だけの<br />運だめし。</h2>
+                <p className="section-copy">本作は実在の宝くじとは一切関係ありません。ゲーム内の金額と抽せん結果はすべて仮想で、現金や景品への交換・出金・譲渡はできません。</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {publicDocuments.map((document) => (
+                  <Link key={document.href} href={document.href} className="group rounded-2xl border border-[#e4d5b7] bg-[#fffaf0] p-6 transition hover:-translate-y-1 hover:border-[#bd8f35] hover:shadow-[0_18px_40px_rgba(69,44,14,.12)]">
+                    <small className="text-xs font-black tracking-[.12em] text-[#b71912]">{document.eyebrow}</small>
+                    <strong className="mt-2 block text-lg text-[#281407]">{document.title}</strong>
+                    <span className="mt-4 block text-sm font-bold text-[#8a704f]">詳しく見る</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="mt-14 rounded-[1.75rem] bg-[#b71912] p-8 text-white sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-10">
+              <div><p className="text-xs font-black tracking-[.14em] text-[#ffd9b9]">ANDROID · JAPAN</p><h2 className="mt-3 text-3xl font-black tracking-[-.05em] sm:text-4xl">日本向けGoogle Play版を準備中</h2><p className="mt-3 text-[#ffe5d4]">公開時期やアプリについてのご質問は、サポート窓口へお寄せください。</p></div>
+              <a href={`mailto:${supportEmail}?subject=%E3%80%90%E3%81%8F%E3%81%98%E3%81%90%E3%82%89%E3%81%97%E3%80%91%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B`} className="mt-6 inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[#fff3d6] px-6 font-black text-[#7b140f] transition hover:-translate-y-0.5 sm:mt-0">お問い合わせ</a>
+            </div>
+          </div>
+        </section>
       </main>
       <SiteFooter />
     </div>
   );
-}
-
-function SectionHeading({ label, title, description }: { label: string; title: ReactNode; description: string }) {
-  return <div className="mb-10 max-w-2xl"><p className="text-xs font-black tracking-[.1em] text-lotto-violet">{label}</p><h2 className="mt-2 break-keep-all text-3xl font-black leading-tight tracking-[-.06em] sm:text-5xl">{title}</h2><p className="mt-4 break-keep-all text-slate-500">{description}</p></div>;
 }

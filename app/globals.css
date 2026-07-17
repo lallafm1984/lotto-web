@@ -1,31 +1,44 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html { scroll-behavior: smooth; }
-  body { @apply bg-[#f8f9fc] text-slate-800 antialiased; font-family: "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  ::selection { @apply bg-lotto-yellow text-lotto-navy; }
+  section[id] { scroll-margin-top: 7rem; }
+  body { @apply bg-[#fffaf0] text-[#342114] antialiased; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif; }
+  ::selection { @apply bg-[#b71912] text-white; }
+  :focus-visible { outline: 2px solid #0b2b65; outline-offset: 3px; }
 }
 
 @layer components {
-  .page-prose h2 { @apply mt-12 text-2xl font-black tracking-[-0.05em] text-lotto-navy; }
+  .eyebrow { @apply text-xs font-black tracking-[.16em] text-[#93651f]; }
+  .section-title { @apply mt-4 text-balance text-4xl font-black leading-tight tracking-[-.06em] text-[#281407] sm:text-6xl; }
+  .section-copy { @apply mt-5 max-w-2xl text-pretty leading-7 text-[#715c45]; }
+  .button-primary { @apply inline-flex min-h-12 items-center justify-center rounded-full bg-[#b71912] px-6 font-black text-white transition hover:-translate-y-0.5 hover:bg-[#95110c] hover:shadow-lg; }
+  .button-secondary { @apply inline-flex min-h-12 items-center justify-center rounded-full border border-[#b48a43] bg-white/70 px-6 font-black text-[#4b2b15] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg; }
+  .page-prose h2 { @apply mt-12 scroll-mt-28 text-2xl font-black tracking-[-0.05em] text-[#281407]; }
   .page-prose h2:first-child { @apply mt-0; }
-  .page-prose h3 { @apply mt-7 text-lg font-extrabold text-slate-800; }
-  .page-prose p, .page-prose li { @apply text-slate-600; }
+  .page-prose h3 { @apply mt-7 text-lg font-extrabold text-[#342114]; }
+  .page-prose p, .page-prose li { @apply text-[#685744]; }
   .page-prose p { @apply mt-3 leading-8; }
   .page-prose ul, .page-prose ol { @apply mt-3 list-outside space-y-2 pl-5; }
   .page-prose ul { @apply list-disc; }
   .page-prose ol { @apply list-decimal; }
-  .page-prose a { @apply font-semibold text-lotto-violet underline decoration-lotto-violet/30 underline-offset-4 hover:text-lotto-blue; }
-  .page-prose table { @apply mt-5 block w-full overflow-x-auto rounded-xl border border-slate-200 text-left text-sm; border-collapse: separate; border-spacing: 0; }
-  .page-prose th { @apply bg-slate-100 px-3 py-3 font-extrabold text-lotto-navy; }
-  .page-prose td { @apply border-t border-slate-200 px-3 py-3 align-top leading-6 text-slate-600; }
+  .page-prose a { @apply font-semibold text-[#a61913] underline decoration-[#a61913]/30 underline-offset-4 hover:text-[#75100c]; }
+  .page-prose table { @apply mt-5 block w-full overflow-x-auto rounded-xl border border-[#e4d5b7] bg-white text-left text-sm; border-collapse: separate; border-spacing: 0; }
+  .page-prose th { @apply bg-[#f6ead0] px-3 py-3 font-extrabold text-[#281407]; }
+  .page-prose td { @apply border-t border-[#e4d5b7] px-3 py-3 align-top leading-6 text-[#685744]; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
 
 @layer utilities {
-  .break-keep-all { word-break: keep-all; overflow-wrap: anywhere; }
-  .ticket-shine { background: linear-gradient(150deg, rgba(255,255,255,.24), rgba(255,255,255,.05)); }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+  .hide-scrollbar { scrollbar-width: none; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .font-serif { font-family: "Yu Mincho", "Hiragino Mincho ProN", Georgia, serif; }
 }

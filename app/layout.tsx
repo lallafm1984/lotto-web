@@ -5,11 +5,12 @@ import { siteName, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: `${siteName} | 무료 가상 로또 시뮬레이션`, template: `%s | ${siteName}` },
-  description: "로또 인생은 실제 복권과 무관한 무료 가상 로또 시뮬레이션 게임입니다.",
-  openGraph: { type: "website", locale: "ko_KR", siteName },
+  title: { default: `${siteName}｜数字くじ確率体験`, template: `%s｜${siteName}` },
+  description: "6/43、1等確率は6,096,454分の1。選んで、回して、記録する数字抽せんシミュレーション。",
+  openGraph: { type: "website", locale: "ja_JP", siteName },
+  icons: { icon: "/marketing/app-icon.png", apple: "/marketing/app-icon.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  return <html lang="ko"><body>{children}</body></html>;
+  return <html lang="ja"><body>{children}</body></html>;
 }
