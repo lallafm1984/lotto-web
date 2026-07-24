@@ -10,7 +10,8 @@ export function SiteFooter() {
           <div>
             <Link href="/" className="inline-flex items-center gap-3 text-white"><Image src="/marketing/app-icon.png" alt="" width={42} height={42} className="size-10 rounded-xl" /><span className="font-serif text-xl font-black">くじぐらし</span></Link>
             <p className="mt-4 max-w-lg text-sm leading-6">1〜43から6つを選び、ゲーム内1等までの道のりを楽しむ数字抽せんシミュレーションです。</p>
-            <p className="mt-2 max-w-lg text-xs leading-5 text-[#9f8d7b]">実在の宝くじとは無関係です。ゲーム内の金額と抽せん結果はすべて仮想で、購入・換金、現金や景品の獲得はできません。</p>
+            <p className="mt-2 max-w-lg text-xs leading-5 text-[#9f8d7b]">18歳以上対象。現金を賭ける機能はなく、現金・景品など現実の価値を持つものは獲得できません。実在の宝くじ・発行元・販売元とは無関係です。</p>
+            <p className="mt-2 max-w-lg text-xs leading-5 text-[#9f8d7b]">遊びすぎに注意し、適度に休憩を取りながらお楽しみください。</p>
           </div>
           <div className="flex flex-wrap content-start gap-x-5 gap-y-3 sm:justify-end">{publicDocuments.map((document) => <Link key={document.href} href={document.href} className="text-sm text-[#e4d7c7] hover:text-white">{document.title}</Link>)}<a href="https://www.4ltree.com/" className="text-sm text-[#e4d7c7] hover:text-white">4L TREE</a></div>
         </div>

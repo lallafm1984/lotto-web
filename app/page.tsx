@@ -3,11 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { publicDocuments, supportEmail } from "@/lib/site";
+import { playStoreUrl, publicDocuments } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "約610万分の1を体験する数字くじゲーム",
-  description: "1〜43から6つを選び、1等確率1/6,096,454の6/43方式に挑戦する数字抽せんシミュレーション。現金・景品は受け取れません。",
+  description: "18歳以上対象。1〜43から6つを選び、1等確率1/6,096,454の6/43方式に挑戦する数字抽せんシミュレーション。現金・景品は受け取れません。",
   alternates: { canonical: "/" },
 };
 
@@ -31,25 +31,25 @@ export default function HomePage() {
       <SiteHeader />
       <main id="main">
         <section className="relative border-b border-[#d8b563]/45 bg-[#fff7e3] py-14 sm:py-20 lg:py-24">
-          <div className="mx-auto grid w-full max-w-7xl gap-x-14 gap-y-8 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
-            <div className="relative z-10 lg:col-start-1 lg:row-start-1">
+          <div className="mx-auto grid w-full min-w-0 max-w-7xl grid-cols-[minmax(0,1fr)] gap-x-14 gap-y-8 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
+            <div className="relative z-10 min-w-0 lg:col-start-1 lg:row-start-1">
               <p className="eyebrow">6/43 確率体験</p>
               <h1 className="mt-5 text-5xl font-black leading-[1.03] tracking-[-.075em] text-[#281407] sm:text-6xl lg:text-[4.25rem]">
-                <span className="whitespace-nowrap">610万分の1を、</span><br /><span className="whitespace-nowrap text-[#b71912]">体験しよう。</span>
+                <span className="sm:whitespace-nowrap">610万分の1を、</span><br /><span className="text-[#b71912] sm:whitespace-nowrap">体験しよう。</span>
               </h1>
             </div>
 
-            <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
+            <div className="relative min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
               <Image src="/marketing/hero-jp.png" alt="" width={1795} height={876} priority className="h-auto w-full rounded-2xl shadow-[0_30px_80px_rgba(67,36,5,.22)]" />
             </div>
 
-            <div className="relative z-10 lg:col-start-1 lg:row-start-2">
+            <div className="relative z-10 min-w-0 lg:col-start-1 lg:row-start-2">
               <p className="mt-6 max-w-xl text-pretty text-lg font-medium leading-8 text-[#644d36] sm:text-xl">
-                1〜43から6つを選び、抽せんして、記録する。<br className="hidden sm:block" />あなたは何回目で、ゲーム内1等に出会えるでしょうか。
+                1〜43から6つを選び、抽せんして、記録する。<br />あなたは何回目で、<br className="sm:hidden" />ゲーム内1等に出会えるでしょうか。
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a href="#how-to-play" className="button-primary">遊び方を見る</a>
-                <a href="#screens" className="button-secondary">ゲーム画面を見る</a>
+              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
+                <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" className="button-primary w-full sm:w-auto" aria-label="Google Playでくじぐらしをインストール">Google Playでインストール</a>
+                <a href="#how-to-play" className="button-secondary w-full sm:w-auto">遊び方を見る</a>
               </div>
               <dl className="mt-10 grid max-w-xl grid-cols-2 border-y border-[#d8b563] py-5 sm:grid-cols-3 sm:divide-x sm:divide-[#d8b563]">
                 <div className="col-span-2 border-b border-[#d8b563] pb-4 text-center sm:col-span-1 sm:border-b-0 sm:px-4 sm:text-left"><dt className="text-xs font-bold text-[#705735]">ゲーム内1等</dt><dd className="mt-1 whitespace-nowrap text-xl font-black text-[#2a180b]">1 / 6,096,454</dd></div>
@@ -141,7 +141,12 @@ export default function HomePage() {
               <div>
                 <p className="eyebrow">安心して遊ぶために</p>
                 <h2 className="section-title">ゲーム内だけの<br />運だめし。</h2>
-                <p className="section-copy">本作は実在の宝くじとは一切関係ありません。ゲーム内の金額と抽せん結果はすべて仮想で、現金や景品への交換・出金・譲渡はできません。</p>
+                <div className="mt-6 max-w-2xl rounded-2xl border-2 border-[#c6953c] bg-[#fff8e8] p-6 text-[#4d351f] shadow-[0_14px_35px_rgba(69,44,14,.08)]" role="note" aria-label="年齢対象とゲームの性質に関する重要なご案内">
+                  <p className="font-black leading-7">※本ゲームは18歳以上の方を対象とした、ゲーム内のみの数字抽せんシミュレーションです。</p>
+                  <p className="mt-3 leading-7">現金を賭ける機能はなく、現金・景品など現実の価値を持つものは獲得できません。</p>
+                  <p className="mt-3 leading-7">実在の宝くじ・発行元・販売元とは無関係です。</p>
+                  <p className="mt-5 border-t border-[#dbc08d] pt-4 text-sm font-bold leading-6 text-[#785b37]">遊びすぎに注意し、適度に休憩を取りながらお楽しみください。</p>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {publicDocuments.map((document) => (
@@ -154,8 +159,8 @@ export default function HomePage() {
               </div>
             </div>
             <div className="mt-14 rounded-[1.75rem] bg-[#b71912] p-8 text-white sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-10">
-              <div><p className="text-xs font-black tracking-[.14em] text-[#ffd9b9]">ANDROID · JAPAN</p><h2 className="mt-3 text-3xl font-black tracking-[-.05em] sm:text-4xl">日本向けGoogle Play版を準備中</h2><p className="mt-3 text-[#ffe5d4]">公開時期やアプリについてのご質問は、サポート窓口へお寄せください。</p></div>
-              <a href={`mailto:${supportEmail}?subject=%E3%80%90%E3%81%8F%E3%81%98%E3%81%90%E3%82%89%E3%81%97%E3%80%91%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B`} className="mt-6 inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[#fff3d6] px-6 font-black text-[#7b140f] transition hover:-translate-y-0.5 sm:mt-0">お問い合わせ</a>
+              <div><p className="text-xs font-black tracking-[.14em] text-[#ffd9b9]">ANDROID · JAPAN</p><h2 className="mt-3 text-3xl font-black tracking-[-.05em] sm:text-4xl">Google Playで配信中</h2><p className="mt-3 text-[#ffe5d4]">18歳以上対象。現金や景品を獲得できない数字抽せんシミュレーションです。</p></div>
+              <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex min-h-12 shrink-0 items-center justify-center rounded-full bg-[#fff3d6] px-6 font-black text-[#7b140f] transition hover:-translate-y-0.5 sm:mt-0" aria-label="Google Playでくじぐらしをインストール">Google Playでインストール</a>
             </div>
           </div>
         </section>

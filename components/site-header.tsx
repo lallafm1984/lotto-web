@@ -32,8 +32,8 @@ export function SiteHeader() {
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">本文へ移動</a>
-      <div className="bg-[#21140b] px-4 py-2 text-center text-xs font-bold tracking-[.04em] text-[#f5d88e] sm:text-sm">
-        日本向けAndroid版を準備中です
+      <div className="bg-[#21140b] px-4 py-2.5 text-center text-xs font-bold leading-5 tracking-[.04em] text-[#f5d88e] sm:text-sm">
+        18歳以上対象 · 現金・景品なし<span className="hidden sm:inline"> · </span><br className="sm:hidden" />実在の宝くじ・発行元・販売元とは無関係です
       </div>
       <header className="sticky top-0 z-40 border-b border-[#dfcda9] bg-[#fffaf0]/95 backdrop-blur-xl">
         <nav className="mx-auto flex min-h-[4.75rem] w-full max-w-7xl items-center justify-between gap-5 px-4 sm:px-6 lg:px-8" aria-label="メインメニュー">

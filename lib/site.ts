@@ -1,6 +1,7 @@
 export const siteUrl = "https://lotto.4ltree.com";
 export const supportEmail = "4ltree.service@gmail.com";
 export const siteName = "くじぐらし";
+export const playStoreUrl = "https://play.google.com/store/apps/details?id=com.lim.numberdrawlife&hl=ja&gl=JP";
 
 export const publicDocuments = [
   { href: "/privacy", eyebrow: "PRIVACY", title: "プライバシーポリシー" },
