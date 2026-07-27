@@ -20,13 +20,13 @@ const FIELD_OLD_COLUMNS: Record<FieldKey, number> = {
   unit: 2,
   achievement: 3,
   teaching: 5,
-  evaluation: 6,
+  focus: 7,
 };
 const FIELD_NEW_COLUMNS: Record<FieldKey, number> = {
   unit: 2,
   achievement: 3,
   teaching: 4,
-  evaluation: 5,
+  focus: 5,
 };
 
 type PageDef = {
@@ -126,7 +126,7 @@ function parsePlanTable(table: Element, sourceIndex: number): PlanTable | null {
     };
   });
   const headerLabels = parsed.filter((cell) => cell.header).map((cell) => normalizedLabel(cell.text));
-  const required = ["월", "주", "단원명", "교육과정성취기준", "수업방법", "평가방법"];
+  const required = ["월", "주", "단원명", "교육과정성취기준", "수업방법", "수업평가연계의주안점"];
   if (!required.every((label) => headerLabels.some((header) => header.includes(label)))) return null;
   const monthCell = parsed.find((cell) => !cell.header && cell.col === 0 && cell.text);
   if (!monthCell) return null;
@@ -303,11 +303,11 @@ function scaledColumnWidths(table: PlanTable) {
     planHeader(table, (label) => label.includes("단원명")),
     planHeader(table, (label) => label.includes("교육과정성취기준")),
     planHeader(table, (label) => label === "수업방법"),
-    planHeader(table, (label) => label === "평가방법"),
+    planHeader(table, (label) => label.includes("수업평가연계의주안점")),
   ];
   const topHeaders = table.cells.filter((cell) => cell.header && cell.row === 0);
   const total = topHeaders.reduce((sum, cell) => sum + cell.width, 0) || 47836;
-  const fallback = [2264, 3138, 4415, 9375, 4848, 4848];
+  const fallback = [2264, 3138, 4415, 9375, 4848, 12685];
   const visible = headers.map((header, index) => header?.width || fallback[index]);
   const visibleTotal = visible.reduce((sum, width) => sum + width, 0);
   const scaled = visible.map((width) => Math.round((width / visibleTotal) * total));
@@ -380,8 +380,8 @@ function rewritePlanTable(
     topHeader.push(group);
   }
   const methodHeader = planHeader(planTable, (label) => label === "수업방법");
-  const evaluationHeader = planHeader(planTable, (label) => label === "평가방법");
-  const secondHeader = [methodHeader, evaluationHeader].flatMap((roleHeader, index) => {
+  const focusHeader = planHeader(planTable, (label) => label.includes("수업평가연계의주안점"));
+  const secondHeader = [methodHeader, focusHeader].flatMap((roleHeader, index) => {
     const source = roleHeader ? headerAt(roleHeader.row, roleHeader.col) : undefined;
     if (!source) return [];
     const cell = source.cloneNode(true) as Element;
@@ -394,7 +394,7 @@ function rewritePlanTable(
     unit: planHeader(planTable, (label) => label.includes("단원명"))?.col ?? FIELD_OLD_COLUMNS.unit,
     achievement: planHeader(planTable, (label) => label.includes("교육과정성취기준"))?.col ?? FIELD_OLD_COLUMNS.achievement,
     teaching: methodHeader?.col ?? FIELD_OLD_COLUMNS.teaching,
-    evaluation: evaluationHeader?.col ?? FIELD_OLD_COLUMNS.evaluation,
+    focus: focusHeader?.col ?? FIELD_OLD_COLUMNS.focus,
   };
 
   for (const week of weeks) {
@@ -428,7 +428,7 @@ function rewritePlanTable(
     if (hasContent || events.length === 0) {
       const contentRowIndex = rowIndex + events.length;
       const contentHeight = heights[heights.length - 1];
-      const contentCells = (["unit", "achievement", "teaching", "evaluation"] as FieldKey[]).map((field) => {
+      const contentCells = (["unit", "achievement", "teaching", "focus"] as FieldKey[]).map((field) => {
         const source = sourceCell(payloadSlot.sourceTableIndex, payloadSlot.sourceCellIndexes[field]) ?? genericByColumn.get(oldFieldColumns[field]);
         if (!source) throw new Error("원본 표의 수업 셀 서식을 찾지 못했습니다.");
         const cell = source.cloneNode(true) as Element;
@@ -523,7 +523,7 @@ export function saveEditedHwpx(prepared: PreparedHwpx, options: SaveOptions) {
     const candidateTables = descendantsByName(document, "tbl");
     const planElements = candidateTables.filter((table) => {
       const labels = tableCells(table).filter((cell) => numberAttribute(firstDescendant(cell, "cellAddr"), "rowAddr") <= 1).map((cell) => normalizedLabel(cellText(cell)));
-      return ["월", "주", "단원명", "교육과정성취기준", "수업방법", "평가방법"].every((label) => labels.some((item) => item.includes(label)));
+      return ["월", "주", "단원명", "교육과정성취기준", "수업방법", "수업평가연계의주안점"].every((label) => labels.some((item) => item.includes(label)));
     });
     const originalTables = new Map(planElements.map((table, index) => [
       index + planTableOffset,

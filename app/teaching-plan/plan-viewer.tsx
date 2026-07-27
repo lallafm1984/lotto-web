@@ -60,7 +60,7 @@ function headerText(value: string) {
 
 const hwpUnitsPerMillimeter = 7200 / 25.4;
 const originalTableWidthFallback = 47836;
-const visibleColumnWidthsFallback = [2264, 3138, 4415, 9375, 4848, 4848];
+const visibleColumnWidthsFallback = [2264, 3138, 4415, 9375, 4848, 12685];
 
 function millimeters(hwpUnits: number) {
   return Math.round((hwpUnits / hwpUnitsPerMillimeter) * 100) / 100;
@@ -90,15 +90,14 @@ function hancomTableLayout(subject: PlanSubject, month: NormalizedMonth) {
     headerWidth((label) => label.includes("단원명")),
     headerWidth((label) => label.includes("교육과정성취기준")),
     headerWidth((label) => label === "수업방법"),
-    headerWidth((label) => label === "평가방법"),
+    headerWidth((label) => label.includes("수업평가연계의주안점")),
   ];
   const hiddenWidths = [
     headerWidth((label) => label.startsWith("탐구과정기능")),
-    headerWidth((label) => label.includes("수업평가연계의주안점")),
+    headerWidth((label) => label === "평가방법"),
   ];
-  const requiredWidths = [...visibleWidths, hiddenWidths[1]];
-  const sourceTotal = requiredWidths.every(Boolean)
-    ? requiredWidths.reduce((sum, width) => sum + width, 0) + hiddenWidths[0]
+  const sourceTotal = [...visibleWidths, ...hiddenWidths].every(Boolean)
+    ? [...visibleWidths, ...hiddenWidths].reduce((sum, width) => sum + width, 0)
     : originalTableWidthFallback;
   const visibleTotal = visibleWidths.reduce((sum, width) => sum + width, 0);
   if (!visibleTotal || visibleWidths.some((width) => !width)) {
@@ -173,7 +172,7 @@ function buildHancomCopy(
       const contentCells = `<td lang="ko" style="${centered}">${htmlText(payload.unit)}</td>` +
         `<td style="${achievement}">${htmlText(payload.achievement)}</td>` +
         `<td style="${centered}">${htmlText(payload.teaching)}</td>` +
-        `<td style="${centered}">${htmlText(payload.evaluation)}</td>`;
+        `<td style="${centered}">${htmlText(payload.focus)}</td>`;
       const eventRows = events.map((eventText, index) => (
         `<tr style="height:${rowHeights[index]}mm;">${index === 0 ? monthCell + weekCell : ""}` +
         `<td colspan="4" lang="ko" style="${event}">${htmlText(eventText)}</td></tr>`
@@ -194,18 +193,18 @@ function buildHancomCopy(
       `<thead><tr style="height:${millimeters(1466)}mm;"><th rowspan="2" lang="ko" style="${header}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("주")}</th>` +
       `<th rowspan="2" lang="ko" style="${header}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("교육과정 성취기준")}</th>` +
       `<th colspan="2" lang="ko" style="${header}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
-      `<tr style="height:${millimeters(2638)}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("평가방법")}</th></tr></thead>` +
+      `<tr style="height:${millimeters(2638)}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("수업·평가 연계의 주안점")}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
   const html = `<!DOCTYPE html><html lang="ko" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@font-face{font-family:'맑은 고딕';src:local('맑은 고딕'),local('Malgun Gothic')}p{margin:0}table,td,th,span{mso-fareast-font-family:'맑은 고딕';}</style></head><body><!--StartFragment--><div lang="ko" style="margin:0;padding:0;${hancomBodyFont}">${htmlMonths}</div><!--EndFragment--></body></html>`;
   const plain = months.flatMap((month) => [
     ...(scope === "all" ? [`■ ${month.month}월`] : []),
-    "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t평가방법",
+    "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t수업·평가 연계의 주안점",
     ...month.weeks.flatMap((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
       const events = eventsBySlot.get(week.id) ?? week.events;
-      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.evaluation]
+      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.focus]
         .map((value) => value.replace(/\n/g, " / "))
         .join("\t");
       if (!events.length) return [contentRow];
@@ -391,7 +390,7 @@ export function PlanViewer() {
     const [movedPayload] = nextOrder.splice(sourceIndex, 1);
     nextOrder.splice(targetIndex, 0, movedPayload);
     setOrders((current) => ({ ...current, [subject.id]: nextOrder }));
-    setCopyStatus("단원명부터 평가방법까지의 수업 행만 이동했습니다.");
+    setCopyStatus("단원명부터 수업·평가 연계의 주안점까지의 수업 행만 이동했습니다.");
   };
 
   const movePayload = (slotId: string, direction: -1 | 1) => {
@@ -628,12 +627,14 @@ export function PlanViewer() {
 
         <aside className={styles.editGuide}>
           <strong>이동 단위</strong>
-          <p>주차·날짜는 그대로 유지됩니다. 주 칸의 <b>주 전체</b> 드래그·상하 버튼은 해당 주의 수업 행과 모든 행사 행을 함께 이동합니다. 단원명 칸의 <b>수업행</b> 버튼은 단원명·성취기준·수업방법·평가방법만, 회색 병합 행의 <b>행사</b> 버튼은 해당 행사 하나만 이동합니다. 행사 행의 <b>전체</b>는 해당 주 전체를 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
+          <p>주차·날짜는 그대로 유지됩니다. 주 칸의 <b>주 전체</b> 드래그·상하 버튼은 해당 주의 수업 행과 모든 행사 행을 함께 이동합니다. 단원명 칸의 <b>수업행</b> 버튼은 단원명·성취기준·수업방법·수업·평가 연계의 주안점만, 회색 병합 행의 <b>행사</b> 버튼은 해당 행사 하나만 이동합니다. 행사 행의 <b>전체</b>는 해당 주 전체를 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
           <p><b>HWP 첨부</b>로 원본 문서를 불러온 뒤 <b>HWPX 저장하기</b>를 누르면, 현재 순서와 행사 병합 구조를 원본 셀 서식에 반영한 별도 파일을 내려받습니다. 원본 HWP는 변경하지 않습니다.</p>
           <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를 누르세요. 월별 복사는 제목 없이 표만 담기므로, 원본 한글 문서의 해당 월 표 전체를 선택한 뒤 붙여넣어 대체할 수 있습니다. 전 월은 <b>한글용 전체 표 복사</b>를 누르세요.</p>
         </aside>
 
         {months.map((month) => {
+          const tableLayout = hancomTableLayout(subject, month);
+          const totalColumnWidth = tableLayout.columnWidthsMm.reduce((sum, width) => sum + width, 0);
           const monthRowCount = month.weeks.reduce((sum, week) => {
             const payload = payloadBySlot.get(week.id) ?? week.payload;
             const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
@@ -656,12 +657,9 @@ export function PlanViewer() {
               <div className={styles.tableScroller} tabIndex={0} aria-label={`${subject.name} ${month.month}월 운영계획 편집 표`}>
                 <table className={styles.originalTable}>
                   <colgroup>
-                    <col style={{ width: "7%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "15%" }} />
-                    <col style={{ width: "32%" }} />
-                    <col style={{ width: "18%" }} />
-                    <col style={{ width: "18%" }} />
+                    {tableLayout.columnWidthsMm.map((width, index) => (
+                      <col key={index} style={{ width: `${(width / totalColumnWidth) * 100}%` }} />
+                    ))}
                   </colgroup>
                   <thead>
                     <tr>
@@ -673,7 +671,7 @@ export function PlanViewer() {
                     </tr>
                     <tr>
                       <th>수업방법</th>
-                      <th>평가방법</th>
+                      <th>수업·평가 연계의 주안점</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -749,7 +747,7 @@ export function PlanViewer() {
                           </td>
                           <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.achievement}</td>
                           <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.teaching}</td>
-                          <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.evaluation}</td>
+                          <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.focus}</td>
                         </>
                       );
                       const dropHandlers = {

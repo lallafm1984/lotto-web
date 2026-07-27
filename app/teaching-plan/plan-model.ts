@@ -7,7 +7,7 @@ import type {
   WeekPayload,
 } from "./plan-types";
 
-export const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "evaluation"];
+export const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "focus"];
 
 type FieldRange = { start: number; end: number };
 
@@ -21,7 +21,7 @@ export function visibleTable(table: PlanTable): PlanTable {
     const normalized = normalizedLabel(cell.text);
     const hiddenHeader = cell.header && (
       cell.text.includes("탐구과정") ||
-      normalized.includes("수업평가연계의주안점")
+      normalized === "평가방법"
     );
     if (!hiddenHeader) continue;
     for (let col = cell.col; col < cell.col + cell.colspan; col += 1) {
@@ -57,7 +57,7 @@ function getFieldRanges(table: PlanTable): Record<FieldKey, FieldRange> {
     unit: findHeader((label) => label.includes("단원명")),
     achievement: findHeader((label) => label.includes("교육과정성취기준")),
     teaching: findHeader((label) => label === "수업방법"),
-    evaluation: findHeader((label) => label === "평가방법"),
+    focus: findHeader((label) => label.includes("수업평가연계의주안점")),
   };
 }
 
@@ -117,7 +117,7 @@ export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
             unit: uniqueFieldCells.unit[0]?.sourceIndex,
             achievement: uniqueFieldCells.achievement[0]?.sourceIndex,
             teaching: uniqueFieldCells.teaching[0]?.sourceIndex,
-            evaluation: uniqueFieldCells.evaluation[0]?.sourceIndex,
+            focus: uniqueFieldCells.focus[0]?.sourceIndex,
             events: eventCells.flatMap((cell) => cell.sourceIndex === undefined ? [] : [cell.sourceIndex]),
           },
         });

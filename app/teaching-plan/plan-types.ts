@@ -37,7 +37,7 @@ export type PlanData = {
   subjects: PlanSubject[];
 };
 
-export type FieldKey = "unit" | "achievement" | "teaching" | "evaluation";
+export type FieldKey = "unit" | "achievement" | "teaching" | "focus";
 
 export type WeekPayload = Record<FieldKey, string>;
 
@@ -55,7 +55,7 @@ export type NormalizedWeek = {
     unit?: number;
     achievement?: number;
     teaching?: number;
-    evaluation?: number;
+    focus?: number;
     events: number[];
   };
 };
