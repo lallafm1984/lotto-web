@@ -350,6 +350,7 @@
 }
 
 .dragHandle,
+.wholeMoveButton,
 .arrowTools button {
   border: 1px solid #9eaaa6;
   border-radius: 5px;
@@ -435,6 +436,15 @@
 
 .eventTools .dragHandle {
   min-height: 26px;
+}
+
+.wholeMoveButton {
+  min-height: 26px;
+  border-color: #446f63;
+  background: #e8f2ef;
+  padding: 0 7px;
+  color: #214a3f;
+  cursor: pointer;
 }
 
 .notice {
@@ -572,6 +582,12 @@
 
   .eventTools .dragHandle {
     min-height: 22px;
+  }
+
+  .wholeMoveButton {
+    min-height: 22px;
+    padding: 0 4px;
+    font-size: 8px;
   }
 
   .footer {

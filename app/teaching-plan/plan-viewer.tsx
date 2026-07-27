@@ -390,6 +390,42 @@ export function PlanViewer() {
     if (target) moveEventToSlot(slotId, eventIndex, target.id);
   };
 
+  const moveWholeWeekToNext = (sourceSlotId: string) => {
+    const sourceIndex = slots.findIndex((slot) => slot.id === sourceSlotId);
+    const targetSlot = slots[sourceIndex + 1];
+    if (sourceIndex < 0 || !targetSlot) {
+      setCopyStatus("마지막 주차는 다음 주로 전체 이동할 수 없습니다.");
+      return;
+    }
+
+    const sourcePayload = payloadBySlot.get(sourceSlotId) ?? slots[sourceIndex].payload;
+    const targetPayload = payloadBySlot.get(targetSlot.id) ?? targetSlot.payload;
+    const sourceEvents = eventsBySlot.get(sourceSlotId) ?? [];
+    const targetEvents = eventsBySlot.get(targetSlot.id) ?? [];
+    if (!payloadIsEmpty(targetPayload) || targetEvents.length > 0) {
+      setCopyStatus("다음 주에 일정이 있어 전체 이동하지 않았습니다. 다음 주를 먼저 비워 주세요.");
+      return;
+    }
+
+    if (!payloadIsEmpty(sourcePayload)) {
+      const nextOrder = [...activeOrder];
+      [nextOrder[sourceIndex], nextOrder[sourceIndex + 1]] = [
+        nextOrder[sourceIndex + 1],
+        nextOrder[sourceIndex],
+      ];
+      setOrders((current) => ({ ...current, [subject.id]: nextOrder }));
+    }
+
+    const nextLayout = Object.fromEntries(slots.map((slot) => [
+      slot.id,
+      [...(eventsBySlot.get(slot.id) ?? [])],
+    ]));
+    nextLayout[sourceSlotId] = [];
+    nextLayout[targetSlot.id] = [...sourceEvents];
+    setEventLayouts((current) => ({ ...current, [subject.id]: nextLayout }));
+    setCopyStatus("해당 주의 전체 일정을 빈 다음 주로 이동했습니다.");
+  };
+
   const resetSubject = () => {
     setOrders((current) => {
       const next = { ...current };
@@ -499,7 +535,7 @@ export function PlanViewer() {
 
         <aside className={styles.editGuide}>
           <strong>주차 내용 순서 변경</strong>
-          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
+          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 행사 행의 <b>전체</b>는 해당 주의 수업 내용과 행사를 함께 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
           <p>편집 후 <b>한글용 전체 표 복사</b>를 누르고 한글 문서에서 기존 표를 선택해 붙여넣으세요.</p>
         </aside>
 
@@ -631,6 +667,16 @@ export function PlanViewer() {
                                     >
                                       ⋮⋮ 행사 이동
                                     </button>
+                                    {eventIndex === 0 ? (
+                                      <button
+                                        type="button"
+                                        className={styles.wholeMoveButton}
+                                        onClick={() => moveWholeWeekToNext(week.id)}
+                                        aria-label={`${week.week.replace(/\n/g, " ")} 전체 일정을 다음 주로 이동`}
+                                      >
+                                        전체
+                                      </button>
+                                    ) : null}
                                     <span className={styles.arrowTools}>
                                       <button type="button" disabled={slotIndex === 0} onClick={() => moveEvent(week.id, eventIndex, -1)} aria-label={`${eventText} 행사 행을 이전 주차로 이동`}>↑</button>
                                       <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => moveEvent(week.id, eventIndex, 1)} aria-label={`${eventText} 행사 행을 다음 주차로 이동`}>↓</button>
