@@ -1,0 +1,373 @@
+.page {
+  min-height: 100vh;
+  background: #ececeb;
+  color: #171717;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 32px clamp(20px, 4vw, 64px) 26px;
+  background: #173f38;
+  color: #fff;
+}
+
+.topbar h1 {
+  margin: 7px 0 0;
+  font-size: clamp(27px, 3vw, 42px);
+  line-height: 1.15;
+  letter-spacing: -0.045em;
+}
+
+.kicker {
+  margin: 0;
+  color: #c9ddd7;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.description {
+  margin: 10px 0 0;
+  color: #dce9e5;
+  font-size: 14px;
+}
+
+.topActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.topActions a,
+.topActions button,
+.subjectRow button {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  padding: 0 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.topActions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.topActions a:hover,
+.topActions button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.controls {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.15fr);
+  gap: 24px;
+  padding: 18px clamp(20px, 4vw, 64px);
+  border-bottom: 1px solid #c9c9c6;
+  background: rgba(249, 249, 247, 0.96);
+  box-shadow: 0 8px 24px rgba(22, 31, 28, 0.07);
+  backdrop-filter: blur(12px);
+}
+
+.subjectControl label,
+.monthControl > span {
+  display: block;
+  margin-bottom: 8px;
+  color: #42534e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.subjectRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.subjectRow select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #aeb8b4;
+  border-radius: 7px;
+  background: #fff;
+  color: #17231f;
+  padding: 0 38px 0 13px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.subjectRow button {
+  border-color: #9caaa5;
+  color: #264840;
+}
+
+.subjectRow button:disabled {
+  cursor: default;
+  opacity: 0.32;
+}
+
+.subjectControl > p {
+  margin: 6px 0 0;
+  color: #6a7470;
+  font-size: 12px;
+  text-align: right;
+}
+
+.monthTabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(56px, 1fr));
+  gap: 6px;
+}
+
+.monthTabs button {
+  min-height: 44px;
+  border: 1px solid #b9c1be;
+  border-radius: 7px;
+  background: #fff;
+  color: #3f4f4a;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.monthTabs button:hover {
+  border-color: #476e64;
+}
+
+.monthTabs .activeMonth {
+  border-color: #173f38;
+  background: #173f38;
+  color: #fff;
+}
+
+.paper {
+  width: min(1600px, calc(100% - 40px));
+  margin: 34px auto 24px;
+  padding: clamp(28px, 4vw, 68px);
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(28, 35, 33, 0.13);
+}
+
+.paperHeading {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.paperHeading p {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.paperHeading h2 {
+  margin: 0;
+  font-family: "Batang", "AppleMyungjo", serif;
+  font-size: clamp(25px, 2.5vw, 38px);
+  line-height: 1.35;
+  letter-spacing: -0.035em;
+}
+
+.sectionTitle {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  min-width: 1180px;
+  border: 1px solid #222;
+  font-family: "Batang", "AppleMyungjo", serif;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sectionTitle strong,
+.sectionTitle span {
+  padding: 10px 12px;
+}
+
+.sectionTitle strong {
+  border-right: 1px solid #222;
+}
+
+.monthHeading {
+  min-width: 1180px;
+  margin: 22px 0 9px;
+  font-family: "Batang", "AppleMyungjo", serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.monthHeading span {
+  font-size: 15px;
+}
+
+.tableScroller {
+  overflow: auto;
+  border: 0;
+  outline: none;
+}
+
+.tableScroller:focus-visible {
+  outline: 3px solid #2f6f60;
+  outline-offset: 4px;
+}
+
+.originalTable {
+  width: 100%;
+  min-width: 1180px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border: 1.5px solid #171717;
+  background: #fff;
+  font-family: "Batang", "AppleMyungjo", serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.originalTable th,
+.originalTable td {
+  border: 1px solid #333;
+  padding: 6px 7px;
+  vertical-align: middle;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.originalTable th {
+  background: #e7e7e7;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.originalTable td:nth-child(1),
+.originalTable td:nth-child(2),
+.compactCell {
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  text-align: center;
+}
+
+.eventCell {
+  background: #f3f3f3;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+
+.notice {
+  min-width: 1180px;
+  margin: 10px 0 0;
+  font-family: "Batang", "AppleMyungjo", serif;
+  font-size: 12px;
+}
+
+.footer {
+  width: min(1600px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 0 0 40px;
+  color: #626865;
+  font-size: 12px;
+}
+
+.footer p {
+  margin: 4px 0;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .controls {
+    position: static;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .paper {
+    width: 100%;
+    margin-top: 16px;
+    padding: 26px 20px 32px;
+    box-shadow: none;
+  }
+
+  .footer {
+    width: calc(100% - 40px);
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding: 26px 20px 22px;
+  }
+
+  .topActions {
+    width: 100%;
+  }
+
+  .topActions a,
+  .topActions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .subjectRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .subjectRow select {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .monthTabs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media print {
+  .page {
+    background: #fff;
+  }
+
+  .topbar,
+  .controls,
+  .footer {
+    display: none;
+  }
+
+  .paper {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .tableScroller {
+    overflow: visible;
+  }
+
+  .sectionTitle,
+  .monthHeading,
+  .originalTable,
+  .notice {
+    min-width: 0;
+  }
+
+  .originalTable {
+    font-size: 8pt;
+  }
+}

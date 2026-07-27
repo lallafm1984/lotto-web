@@ -2,5 +2,7 @@ node_modules/
 .next/
 out/
 .vercel/
+dist/
+.wrangler/
 *.tsbuildinfo
 .env*.local
