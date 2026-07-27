@@ -69,7 +69,7 @@ type StoredOrders = Record<string, string[]>;
 type StoredEventLayouts = Record<string, Record<string, string[]>>;
 
 type DraggedItem = {
-  kind: "payload" | "event";
+  kind: "week" | "payload" | "event";
   slotId: string;
   eventIndex?: number;
 };
@@ -482,13 +482,39 @@ export function PlanViewer() {
     const [movedPayload] = nextOrder.splice(sourceIndex, 1);
     nextOrder.splice(targetIndex, 0, movedPayload);
     setOrders((current) => ({ ...current, [subject.id]: nextOrder }));
-    setCopyStatus("변경사항이 이 기기에 임시 저장되었습니다.");
+    setCopyStatus("단원명부터 평가방법까지의 수업 행만 이동했습니다.");
   };
 
   const movePayload = (slotId: string, direction: -1 | 1) => {
     const index = slots.findIndex((slot) => slot.id === slotId);
     const target = slots[index + direction];
     if (target) reorderPayloads(slotId, target.id);
+  };
+
+  const reorderWeeks = (sourceSlotId: string, targetSlotId: string) => {
+    if (sourceSlotId === targetSlotId) return;
+    const sourceIndex = slots.findIndex((slot) => slot.id === sourceSlotId);
+    const targetIndex = slots.findIndex((slot) => slot.id === targetSlotId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextOrder = [...activeOrder];
+    const [movedPayload] = nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, movedPayload);
+
+    const eventGroups = slots.map((slot) => [...(eventsBySlot.get(slot.id) ?? [])]);
+    const [movedEvents] = eventGroups.splice(sourceIndex, 1);
+    eventGroups.splice(targetIndex, 0, movedEvents);
+    const nextLayout = Object.fromEntries(slots.map((slot, index) => [slot.id, eventGroups[index]]));
+
+    setOrders((current) => ({ ...current, [subject.id]: nextOrder }));
+    setEventLayouts((current) => ({ ...current, [subject.id]: nextLayout }));
+    setCopyStatus("해당 주의 수업 행과 행사 행을 모두 함께 이동했습니다.");
+  };
+
+  const moveWeek = (slotId: string, direction: -1 | 1) => {
+    const index = slots.findIndex((slot) => slot.id === slotId);
+    const target = slots[index + direction];
+    if (target) reorderWeeks(slotId, target.id);
   };
 
   const moveEventToSlot = (sourceSlotId: string, eventIndex: number, targetSlotId: string) => {
@@ -684,8 +710,8 @@ export function PlanViewer() {
         </div>
 
         <aside className={styles.editGuide}>
-          <strong>주차 내용 순서 변경</strong>
-          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 행사 행의 <b>전체</b>는 해당 주의 수업 내용과 행사를 함께 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
+          <strong>이동 단위</strong>
+          <p>주차·날짜는 그대로 유지됩니다. 주 칸의 <b>주 전체</b> 드래그·상하 버튼은 해당 주의 수업 행과 모든 행사 행을 함께 이동합니다. 단원명 칸의 <b>수업행</b> 버튼은 단원명·성취기준·수업방법·평가방법만, 회색 병합 행의 <b>행사</b> 버튼은 해당 행사 하나만 이동합니다. 행사 행의 <b>전체</b>는 해당 주 전체를 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
           <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를 누르세요. 월별 복사는 제목 없이 표만 담기므로, 원본 한글 문서의 해당 월 표 전체를 선택한 뒤 붙여넣어 대체할 수 있습니다. 전 월은 <b>한글용 전체 표 복사</b>를 누르세요.</p>
         </aside>
 
@@ -752,29 +778,57 @@ export function PlanViewer() {
                               className={styles.dragHandle}
                               draggable
                               onDragStart={(event) => {
-                                setDraggedItem({ kind: "payload", slotId: week.id });
+                                setDraggedItem({ kind: "week", slotId: week.id });
                                 event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData("text/plain", `payload:${week.id}`);
+                                event.dataTransfer.setData("text/plain", `week:${week.id}`);
                               }}
                               onDragEnd={() => {
                                 setDraggedItem(null);
                                 setDropSlotId(null);
                               }}
-                              aria-label={`${week.week.replace(/\n/g, " ")} 내용 이동`}
+                              aria-label={`${week.week.replace(/\n/g, " ")} 주 전체 이동`}
                             >
-                              <span className={styles.desktopDragLabel}>⋮⋮ 내용 이동</span>
-                              <span className={styles.mobileDragLabel}>이동</span>
+                              <span className={styles.desktopDragLabel}>⋮⋮ 주 전체</span>
+                              <span className={styles.mobileDragLabel}>전체</span>
                             </button>
                             <span className={styles.arrowTools}>
-                              <button type="button" disabled={slotIndex === 0} onClick={() => movePayload(week.id, -1)} aria-label="이전 주차와 내용 바꾸기">↑</button>
-                              <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => movePayload(week.id, 1)} aria-label="다음 주차와 내용 바꾸기">↓</button>
+                              <button type="button" disabled={slotIndex === 0} onClick={() => moveWeek(week.id, -1)} aria-label="이전 주차로 주 전체 이동">↑</button>
+                              <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => moveWeek(week.id, 1)} aria-label="다음 주차로 주 전체 이동">↓</button>
                             </span>
                           </div>
                         </td>
                       );
                       const payloadCells = (
                         <>
-                          <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.unit}</td>
+                          <td className={`${styles.unitCell} ${payloadIsEmpty(payload) ? styles.emptyPayload : ""}`}>
+                            <span className={styles.unitText}>{payload.unit}</span>
+                            {hasContent ? (
+                              <div className={`${styles.rowTools} ${styles.unitTools}`}>
+                                <button
+                                  type="button"
+                                  className={styles.dragHandle}
+                                  draggable
+                                  onDragStart={(event) => {
+                                    setDraggedItem({ kind: "payload", slotId: week.id });
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", `payload:${week.id}`);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDraggedItem(null);
+                                    setDropSlotId(null);
+                                  }}
+                                  aria-label={`${week.week.replace(/\n/g, " ")} 수업 행만 이동`}
+                                >
+                                  <span className={styles.desktopDragLabel}>⋮⋮ 수업행</span>
+                                  <span className={styles.mobileDragLabel}>수업행</span>
+                                </button>
+                                <span className={styles.arrowTools}>
+                                  <button type="button" disabled={slotIndex === 0} onClick={() => movePayload(week.id, -1)} aria-label="이전 주차로 수업 행만 이동">↑</button>
+                                  <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => movePayload(week.id, 1)} aria-label="다음 주차로 수업 행만 이동">↓</button>
+                                </span>
+                              </div>
+                            ) : null}
+                          </td>
                           <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.achievement}</td>
                           <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.teaching}</td>
                           <td className={payloadIsEmpty(payload) ? styles.emptyPayload : ""}>{payload.evaluation}</td>
@@ -790,6 +844,7 @@ export function PlanViewer() {
                         onDragLeave: () => setDropSlotId((current) => current === week.id ? null : current),
                         onDrop: (event: DragEvent<HTMLTableRowElement>) => {
                           event.preventDefault();
+                          if (draggedItem?.kind === "week") reorderWeeks(draggedItem.slotId, week.id);
                           if (draggedItem?.kind === "payload") reorderPayloads(draggedItem.slotId, week.id);
                           if (draggedItem?.kind === "event" && draggedItem.eventIndex !== undefined) {
                             moveEventToSlot(draggedItem.slotId, draggedItem.eventIndex, week.id);
@@ -825,7 +880,7 @@ export function PlanViewer() {
                                       }}
                                       aria-label={`${eventText} 행사 행 이동`}
                                     >
-                                      ⋮⋮ 행사 이동
+                                      ⋮⋮ 행사만
                                     </button>
                                     {eventIndex === 0 ? (
                                       <button

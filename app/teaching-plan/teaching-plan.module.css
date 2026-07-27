@@ -375,6 +375,20 @@
   margin-top: 7px;
 }
 
+.unitCell {
+  text-align: center;
+}
+
+.unitText {
+  display: block;
+  white-space: pre-line;
+}
+
+.unitTools .dragHandle {
+  width: 100%;
+  min-width: 0;
+}
+
 .dragHandle,
 .wholeMoveButton,
 .arrowTools button {
@@ -601,6 +615,10 @@
     padding: 0 1px;
   }
 
+  .unitTools .dragHandle {
+    padding: 0 1px;
+  }
+
   .arrowTools button {
     width: 22px;
     min-height: 22px;
@@ -698,6 +716,10 @@
   }
 
   .weekCell .arrowTools {
+    flex-direction: column;
+  }
+
+  .unitTools .arrowTools {
     flex-direction: column;
   }
 
