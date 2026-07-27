@@ -71,7 +71,7 @@
   z-index: 20;
   top: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.15fr);
+  grid-template-columns: minmax(320px, 1fr) minmax(340px, 0.9fr) auto;
   gap: 24px;
   padding: 18px clamp(20px, 4vw, 64px);
   border-bottom: 1px solid #c9c9c6;
@@ -131,21 +131,69 @@
   gap: 6px;
 }
 
-.monthTabs button {
+.monthTabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   border: 1px solid #b9c1be;
   border-radius: 7px;
   background: #fff;
   color: #3f4f4a;
   font-weight: 800;
+  text-decoration: none;
+}
+
+.monthTabs a:hover {
+  border-color: #476e64;
+  background: #edf5f2;
+}
+
+.editActions {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: end;
+  gap: 7px;
+  min-width: 250px;
+}
+
+.editActions > span {
+  align-self: center;
+  justify-self: start;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.savedBadge {
+  background: #e5eee9;
+  color: #315b4d;
+}
+
+.changedBadge {
+  background: #fff0cc;
+  color: #7a4d00;
+}
+
+.editActions button {
+  min-height: 38px;
+  border: 1px solid #9caaa5;
+  border-radius: 7px;
+  background: #fff;
+  color: #264840;
+  padding: 0 12px;
+  font-weight: 800;
   cursor: pointer;
 }
 
-.monthTabs button:hover {
-  border-color: #476e64;
+.editActions button:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 
-.monthTabs .activeMonth {
+.editActions .copyButton {
+  grid-column: 1 / -1;
   border-color: #173f38;
   background: #173f38;
   color: #fff;
@@ -197,6 +245,30 @@
 
 .sectionTitle strong {
   border-right: 1px solid #222;
+}
+
+.editGuide {
+  min-width: 1180px;
+  margin: 18px 0 24px;
+  border: 1px solid #b9cbc5;
+  border-radius: 8px;
+  background: #f1f7f5;
+  padding: 14px 16px;
+  color: #28483f;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.editGuide strong {
+  font-size: 14px;
+}
+
+.editGuide p {
+  margin: 4px 0 0;
+}
+
+.monthSection {
+  scroll-margin-top: 152px;
 }
 
 .monthHeading {
@@ -259,6 +331,81 @@
   text-align: center;
 }
 
+.weekCell {
+  padding: 7px 5px !important;
+}
+
+.weekCell > span {
+  display: block;
+  white-space: pre-line;
+}
+
+.rowTools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.dragHandle,
+.arrowTools button {
+  border: 1px solid #9eaaa6;
+  border-radius: 5px;
+  background: #fff;
+  color: #294c42;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: grab;
+}
+
+.dragHandle {
+  min-height: 28px;
+  padding: 0 7px;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.arrowTools {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.arrowTools button {
+  width: 27px;
+  min-height: 28px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.arrowTools button:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+.weekGroup {
+  transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.dropTarget > td {
+  background: #dff2eb !important;
+  box-shadow: inset 0 3px 0 #2f7967, inset 0 -3px 0 #2f7967;
+}
+
+.draggingRow {
+  opacity: 0.48;
+}
+
+.emptyPayload::after {
+  content: "비어 있음";
+  color: #a3aaa7;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 10px;
+}
+
 .eventCell {
   background: #f3f3f3;
   font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
@@ -271,6 +418,14 @@
   margin: 10px 0 0;
   font-family: "Batang", "AppleMyungjo", serif;
   font-size: 12px;
+}
+
+.copyStatus {
+  min-height: 22px;
+  margin: 12px 0 0;
+  color: #245f50;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .footer {
@@ -306,6 +461,11 @@
 
   .footer {
     width: calc(100% - 40px);
+  }
+
+  .editActions {
+    grid-template-columns: 1fr 1fr;
+    min-width: 0;
   }
 }
 
@@ -345,6 +505,9 @@
 
   .topbar,
   .controls,
+  .editGuide,
+  .rowTools,
+  .copyStatus,
   .footer {
     display: none;
   }
@@ -361,6 +524,7 @@
   }
 
   .sectionTitle,
+  .editGuide,
   .monthHeading,
   .originalTable,
   .notice {
