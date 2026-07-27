@@ -1,72 +1,27 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import type { DragEvent } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 import rawPlanData from "./plan-data.json";
+import {
+  downloadBytes,
+  editedFileName,
+  prepareUploadedDocument,
+  saveEditedHwpx,
+} from "./hwpx-client";
+import type { PreparedHwpx } from "./hwpx-client";
+import { fieldKeys, normalizeSubject, normalizedLabel, payloadIsEmpty } from "./plan-model";
+import type {
+  NormalizedMonth,
+  NormalizedWeek,
+  PlanData,
+  PlanSubject,
+  PlanTable,
+  StoredEventLayouts,
+  StoredOrders,
+  WeekPayload,
+} from "./plan-types";
 import styles from "./teaching-plan.module.css";
-
-type PlanCell = {
-  row: number;
-  col: number;
-  rowspan: number;
-  colspan: number;
-  width: number;
-  height: number;
-  text: string;
-  header: boolean;
-};
-
-type PlanTable = {
-  month: string;
-  rows: number;
-  cols: number;
-  cells: PlanCell[];
-};
-
-type PlanMonth = {
-  month: string;
-  tables: PlanTable[];
-};
-
-type PlanSubject = {
-  id: string;
-  name: string;
-  months: PlanMonth[];
-};
-
-type PlanData = {
-  title: string;
-  sourceName: string;
-  sourceUrl: string;
-  notice: string;
-  subjects: PlanSubject[];
-};
-
-type FieldKey = "unit" | "achievement" | "teaching" | "evaluation";
-
-type FieldRange = {
-  start: number;
-  end: number;
-};
-
-type WeekPayload = Record<FieldKey, string>;
-
-type NormalizedWeek = {
-  id: string;
-  month: string;
-  week: string;
-  height: number;
-  events: string[];
-  payload: WeekPayload;
-};
-
-type NormalizedMonth = {
-  month: string;
-  weeks: NormalizedWeek[];
-};
-
-type StoredOrders = Record<string, string[]>;
-type StoredEventLayouts = Record<string, Record<string, string[]>>;
 
 type DraggedItem = {
   kind: "week" | "payload" | "event";
@@ -76,113 +31,9 @@ type DraggedItem = {
 
 type HancomCopyScope = "all" | "month";
 
-const planData = rawPlanData as unknown as PlanData;
-const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "evaluation"];
+const initialPlanData = rawPlanData as unknown as PlanData;
 const payloadStorageKey = "teaching-plan-week-order-v1";
 const eventStorageKey = "teaching-plan-event-layout-v2";
-
-function normalizedLabel(text: string) {
-  return text.replace(/[\s·‧()]/g, "");
-}
-
-function visibleTable(table: PlanTable): PlanTable {
-  const hiddenColumns = new Set<number>();
-  for (const cell of table.cells) {
-    const normalized = normalizedLabel(cell.text);
-    const hiddenHeader = cell.header && (
-      cell.text.includes("탐구과정") ||
-      normalized.includes("수업평가연계의주안점")
-    );
-    if (!hiddenHeader) continue;
-    for (let col = cell.col; col < cell.col + cell.colspan; col += 1) {
-      hiddenColumns.add(col);
-    }
-  }
-
-  const visibleColumns = Array.from({ length: table.cols }, (_, index) => index)
-    .filter((index) => !hiddenColumns.has(index));
-  const columnMap = new Map(visibleColumns.map((original, index) => [original, index]));
-  const cells = table.cells.flatMap((cell) => {
-    const remainingColumns = Array.from(
-      { length: cell.colspan },
-      (_, index) => cell.col + index,
-    ).filter((column) => !hiddenColumns.has(column));
-    if (remainingColumns.length === 0) return [];
-    const newCol = columnMap.get(remainingColumns[0]);
-    if (newCol === undefined) return [];
-    return [{ ...cell, col: newCol, colspan: remainingColumns.length }];
-  });
-
-  return { ...table, cols: visibleColumns.length, cells };
-}
-
-function getFieldRanges(table: PlanTable): Record<FieldKey, FieldRange> {
-  const findHeader = (predicate: (label: string) => boolean) => {
-    const cell = table.cells.find((item) => item.header && predicate(normalizedLabel(item.text)));
-    if (!cell) throw new Error("교수학습 표의 필수 머리글을 찾을 수 없습니다.");
-    return { start: cell.col, end: cell.col + cell.colspan };
-  };
-
-  return {
-    unit: findHeader((label) => label.includes("단원명")),
-    achievement: findHeader((label) => label.includes("교육과정성취기준")),
-    teaching: findHeader((label) => label === "수업방법"),
-    evaluation: findHeader((label) => label === "평가방법"),
-  };
-}
-
-function overlaps(cell: PlanCell, range: FieldRange) {
-  return cell.col < range.end && cell.col + cell.colspan > range.start;
-}
-
-function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
-  return subject.months.map((month) => {
-    const weeks: NormalizedWeek[] = [];
-
-    month.tables.forEach((rawTable, tableIndex) => {
-      const table = visibleTable(rawTable);
-      const ranges = getFieldRanges(table);
-      const bodyCells = table.cells.filter((cell) => !cell.header);
-      const weekCells = bodyCells
-        .filter((cell) => /^\s*\d+\s*\(/.test(cell.text))
-        .sort((a, b) => a.row - b.row || a.col - b.col);
-
-      weekCells.forEach((weekCell, weekIndex) => {
-        const rowStart = weekCell.row;
-        const rowEnd = weekCell.row + weekCell.rowspan;
-        const cellsInWeek = bodyCells.filter((cell) => (
-          cell.row < rowEnd && cell.row + cell.rowspan > rowStart
-        ));
-        const fieldOverlaps = (cell: PlanCell) => fieldKeys.filter((key) => overlaps(cell, ranges[key]));
-        const eventCells = cellsInWeek
-          .filter((cell) => fieldOverlaps(cell).length > 1 && cell.text.trim())
-          .sort((a, b) => a.row - b.row || a.col - b.col);
-        const events = Array.from(new Set(eventCells.map((cell) => cell.text.trim())));
-        const payload = Object.fromEntries(fieldKeys.map((key) => {
-          const values = cellsInWeek
-            .filter((cell) => {
-              const matchedFields = fieldOverlaps(cell);
-              return matchedFields.length === 1 && matchedFields[0] === key && cell.text.trim();
-            })
-            .sort((a, b) => a.row - b.row || a.col - b.col)
-            .map((cell) => cell.text.trim());
-          return [key, Array.from(new Set(values)).join("\n")];
-        })) as WeekPayload;
-
-        weeks.push({
-          id: `${subject.id}:${month.month}:${tableIndex}:${weekIndex}`,
-          month: month.month,
-          week: weekCell.text.trim(),
-          height: weekCell.height,
-          events,
-          payload,
-        });
-      });
-    });
-
-    return { month: month.month, weeks };
-  });
-}
 
 function escapeHtml(value: string) {
   return value
@@ -193,8 +44,18 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-function htmlText(value: string) {
-  return escapeHtml(value).replace(/\n/g, "<br>");
+const hancomBodyFont = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;mso-fareast-font-family:'맑은 고딕';font-size:8pt;font-weight:400;font-stretch:95%;letter-spacing:-0.8pt;line-height:130%;color:#000;";
+const hancomHeaderFont = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;mso-fareast-font-family:'맑은 고딕';font-size:9pt;font-weight:700;font-stretch:95%;letter-spacing:-0.9pt;line-height:130%;color:#000;";
+
+function htmlText(value: string, style = hancomBodyFont) {
+  const lines = value.split("\n");
+  return lines.map((line, index) => (
+    `${index ? "<br>" : ""}<span lang="ko" style="${style}">${escapeHtml(line)}</span>`
+  )).join("");
+}
+
+function headerText(value: string) {
+  return htmlText(value, hancomHeaderFont);
 }
 
 const hwpUnitsPerMillimeter = 7200 / 25.4;
@@ -257,8 +118,8 @@ function hancomTableLayout(subject: PlanSubject, month: NormalizedMonth) {
 
 function weekHtml(value: string) {
   const [weekNumber = "", ...dates] = value.split("\n");
-  return `<span style="font-size:9pt;">${escapeHtml(weekNumber)}</span>` +
-    dates.map((line) => `<br><span style="font-size:8pt;">${escapeHtml(line)}</span>`).join("");
+  return `<span lang="ko" style="${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;">${escapeHtml(weekNumber)}</span>` +
+    dates.map((line) => `<br><span lang="ko" style="${hancomBodyFont}letter-spacing:-1.44pt;">${escapeHtml(line)}</span>`).join("");
 }
 
 function weekRowHeights(week: NormalizedWeek, eventCount: number, hasContent: boolean) {
@@ -279,7 +140,7 @@ function buildHancomCopy(
   eventsBySlot: Map<string, string[]>,
   scope: HancomCopyScope,
 ) {
-  const font = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:8pt;font-weight:400;font-stretch:95%;letter-spacing:-0.1em;line-height:130%;color:#000;";
+  const font = hancomBodyFont;
   const border = "border:0.12mm solid #000;padding:0.5mm 1.8mm;mso-padding-alt:0.5mm 1.8mm 0.5mm 1.8mm;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:break-word;";
   const header = `${border}${font}background-color:#fff;font-size:9pt;font-weight:700;text-align:center;`;
   const body = `${border}${font}`;
@@ -306,16 +167,16 @@ function buildHancomCopy(
       const rowHeights = weekRowHeights(week, events.length, hasContent);
       const monthCell = monthCellWritten
         ? ""
-        : `<td rowspan="${visualRows}" style="${centered}font-size:9pt;">${escapeHtml(month.month)}</td>`;
+        : `<td rowspan="${visualRows}" lang="ko" style="${centered}font-size:9pt;">${htmlText(month.month, `${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;`)}</td>`;
       monthCellWritten = true;
       const weekCell = `<td rowspan="${weekRowCount}" style="${centered}">${weekHtml(week.week)}</td>`;
-      const contentCells = `<td style="${centered}">${htmlText(payload.unit)}</td>` +
+      const contentCells = `<td lang="ko" style="${centered}">${htmlText(payload.unit)}</td>` +
         `<td style="${achievement}">${htmlText(payload.achievement)}</td>` +
         `<td style="${centered}">${htmlText(payload.teaching)}</td>` +
         `<td style="${centered}">${htmlText(payload.evaluation)}</td>`;
       const eventRows = events.map((eventText, index) => (
         `<tr style="height:${rowHeights[index]}mm;">${index === 0 ? monthCell + weekCell : ""}` +
-        `<td colspan="4" style="${event}">${htmlText(eventText)}</td></tr>`
+        `<td colspan="4" lang="ko" style="${event}">${htmlText(eventText)}</td></tr>`
       )).join("");
       if (events.length && hasContent) {
         return `${eventRows}<tr style="height:${rowHeights[rowHeights.length - 1]}mm;">${contentCells}</tr>`;
@@ -330,14 +191,14 @@ function buildHancomCopy(
     return monthHeading +
       `<table border="1" cellspacing="0" cellpadding="0" width="${tableWidthPx}" style="width:${layout.tableWidthMm}mm;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin:0;border:0.12mm solid #000;mso-table-layout-alt:fixed;">` +
       `<colgroup>${columns}</colgroup>` +
-      `<thead><tr style="height:${millimeters(1466)}mm;"><th rowspan="2" style="${header}">월</th><th rowspan="2" style="${header}">주</th>` +
-      `<th rowspan="2" style="${header}">단원명<br>(영역명)</th><th rowspan="2" style="${header}">교육과정 성취기준</th>` +
-      `<th colspan="2" style="${header}">탐구-실행-성찰과정</th></tr>` +
-      `<tr style="height:${millimeters(2638)}mm;"><th style="${header}">수업방법</th><th style="${header}">평가방법</th></tr></thead>` +
+      `<thead><tr style="height:${millimeters(1466)}mm;"><th rowspan="2" lang="ko" style="${header}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("주")}</th>` +
+      `<th rowspan="2" lang="ko" style="${header}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("교육과정 성취기준")}</th>` +
+      `<th colspan="2" lang="ko" style="${header}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
+      `<tr style="height:${millimeters(2638)}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("평가방법")}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
-  const html = `<meta charset="utf-8"><!--StartFragment--><div style="margin:0;padding:0;">${htmlMonths}</div><!--EndFragment-->`;
+  const html = `<!DOCTYPE html><html lang="ko" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@font-face{font-family:'맑은 고딕';src:local('맑은 고딕'),local('Malgun Gothic')}p{margin:0}table,td,th,span{mso-fareast-font-family:'맑은 고딕';}</style></head><body><!--StartFragment--><div lang="ko" style="margin:0;padding:0;${hancomBodyFont}">${htmlMonths}</div><!--EndFragment--></body></html>`;
   const plain = months.flatMap((month) => [
     ...(scope === "all" ? [`■ ${month.month}월`] : []),
     "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t평가방법",
@@ -386,12 +247,12 @@ function copyRichHtmlWithSelection(html: string) {
   return copied;
 }
 
-function payloadIsEmpty(payload: WeekPayload) {
-  return fieldKeys.every((key) => !payload[key].trim());
-}
-
 export function PlanViewer() {
-  const [subjectId, setSubjectId] = useState(planData.subjects[0].id);
+  const [planData, setPlanData] = useState(initialPlanData);
+  const [preparedHwpx, setPreparedHwpx] = useState<PreparedHwpx | null>(null);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentStatus, setDocumentStatus] = useState("HWP 또는 HWPX 문서를 첨부하면 같은 양식으로 불러올 수 있습니다.");
+  const [subjectId, setSubjectId] = useState(initialPlanData.subjects[0].id);
   const [orders, setOrders] = useState<StoredOrders>({});
   const [eventLayouts, setEventLayouts] = useState<StoredEventLayouts>({});
   const [storageReady, setStorageReady] = useState(false);
@@ -432,6 +293,54 @@ export function PlanViewer() {
       currentEvents.some((eventText, index) => eventText !== sourceEvents[index]);
   });
   const changed = payloadChanged || eventChanged;
+
+  const uploadDocument = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!/\.hwpx?$/i.test(file.name)) {
+      setDocumentStatus(".hwp 또는 .hwpx 파일만 첨부할 수 있습니다.");
+      return;
+    }
+    setDocumentBusy(true);
+    setDocumentStatus("문서를 분석하고 있습니다. 큰 문서는 잠시 걸릴 수 있습니다.");
+    try {
+      const loaded = await prepareUploadedDocument(file);
+      setPlanData(loaded.planData);
+      setPreparedHwpx(loaded.prepared);
+      setSubjectId(loaded.planData.subjects[0].id);
+      setOrders({});
+      setEventLayouts({});
+      setCopyStatus("");
+      const monthCount = loaded.planData.subjects.reduce((sum, item) => sum + item.months.length, 0);
+      setDocumentStatus(`${file.name} · ${loaded.planData.subjects.length}과목 · ${monthCount}개월 표를 불러왔습니다.`);
+    } catch (error) {
+      setDocumentStatus(error instanceof Error ? error.message : "문서를 불러오지 못했습니다.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  };
+
+  const saveDocument = () => {
+    if (!preparedHwpx) {
+      setDocumentStatus("먼저 원본 HWP 또는 HWPX 문서를 첨부해 주세요.");
+      return;
+    }
+    setDocumentBusy(true);
+    setDocumentStatus("현재 순서와 병합 행사 행을 HWPX에 반영하고 있습니다.");
+    window.setTimeout(() => {
+      try {
+        const output = saveEditedHwpx(preparedHwpx, { planData, orders, eventLayouts });
+        const fileName = editedFileName(preparedHwpx.sourceName);
+        downloadBytes(output, fileName);
+        setDocumentStatus(`${fileName} 저장을 시작했습니다. 원본 파일은 변경하지 않았습니다.`);
+      } catch (error) {
+        setDocumentStatus(error instanceof Error ? error.message : "HWPX 저장에 실패했습니다.");
+      } finally {
+        setDocumentBusy(false);
+      }
+    }, 0);
+  };
 
   useEffect(() => {
     let active = true;
@@ -647,9 +556,17 @@ export function PlanViewer() {
           <h1>교수학습 및 평가 운영계획</h1>
           <p className={styles.description}>월별 표를 한 화면에서 확인하고, 주차별 수업 내용과 병합 행사 행을 원하는 순서로 배치할 수 있습니다.</p>
         </div>
-        <div className={styles.topActions}>
-          <a href={planData.sourceUrl} target="_blank" rel="noreferrer">원본 파일</a>
-          <button type="button" onClick={() => window.print()}>인쇄</button>
+        <div className={styles.documentArea}>
+          <div className={styles.topActions}>
+            {planData.sourceUrl ? <a href={planData.sourceUrl} target="_blank" rel="noreferrer">원본 파일</a> : null}
+            <label className={styles.uploadButton}>
+              {documentBusy ? "처리 중…" : "HWP 첨부"}
+              <input type="file" accept=".hwp,.hwpx" disabled={documentBusy} onChange={uploadDocument} />
+            </label>
+            <button type="button" disabled={documentBusy || !preparedHwpx} onClick={saveDocument}>HWPX 저장하기</button>
+            <button type="button" onClick={() => window.print()}>인쇄</button>
+          </div>
+          <p className={styles.documentStatus} aria-live="polite">{documentStatus}</p>
         </div>
       </header>
 
@@ -712,6 +629,7 @@ export function PlanViewer() {
         <aside className={styles.editGuide}>
           <strong>이동 단위</strong>
           <p>주차·날짜는 그대로 유지됩니다. 주 칸의 <b>주 전체</b> 드래그·상하 버튼은 해당 주의 수업 행과 모든 행사 행을 함께 이동합니다. 단원명 칸의 <b>수업행</b> 버튼은 단원명·성취기준·수업방법·평가방법만, 회색 병합 행의 <b>행사</b> 버튼은 해당 행사 하나만 이동합니다. 행사 행의 <b>전체</b>는 해당 주 전체를 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
+          <p><b>HWP 첨부</b>로 원본 문서를 불러온 뒤 <b>HWPX 저장하기</b>를 누르면, 현재 순서와 행사 병합 구조를 원본 셀 서식에 반영한 별도 파일을 내려받습니다. 원본 HWP는 변경하지 않습니다.</p>
           <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를 누르세요. 월별 복사는 제목 없이 표만 담기므로, 원본 한글 문서의 해당 월 표 전체를 선택한 뒤 붙여넣어 대체할 수 있습니다. 전 월은 <b>한글용 전체 표 복사</b>를 누르세요.</p>
         </aside>
 
@@ -928,7 +846,7 @@ export function PlanViewer() {
 
       <footer className={styles.footer}>
         <p>원본: {planData.sourceName}</p>
-        <p>요청에 따라 제외된 열은 표시하지 않으며, 편집 내용은 현재 브라우저에 임시 저장됩니다.</p>
+        <p>요청에 따라 제외된 열은 표시하지 않습니다. 첨부한 파일과 편집 내용은 외부 저장소에 업로드하지 않고 이 브라우저 안에서 처리합니다.</p>
       </footer>
     </main>
   );
