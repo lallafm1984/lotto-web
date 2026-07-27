@@ -66,9 +66,15 @@ type NormalizedMonth = {
 
 type StoredOrders = Record<string, string[]>;
 
+type DraggedItem = {
+  kind: "payload" | "event";
+  slotId: string;
+};
+
 const planData = rawPlanData as unknown as PlanData;
 const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "evaluation"];
-const storageKey = "teaching-plan-week-order-v1";
+const payloadStorageKey = "teaching-plan-week-order-v1";
+const eventStorageKey = "teaching-plan-event-order-v1";
 
 function normalizedLabel(text: string) {
   return text.replace(/[\s·‧()]/g, "");
@@ -189,6 +195,7 @@ function buildHancomCopy(
   subject: PlanSubject,
   months: NormalizedMonth[],
   payloadBySlot: Map<string, WeekPayload>,
+  eventsBySlot: Map<string, string[]>,
 ) {
   const border = "border:1px solid #333;padding:6px 7px;vertical-align:middle;white-space:pre-wrap;";
   const header = `${border}background:#e7e7e7;font-family:'Malgun Gothic';font-size:9pt;font-weight:700;text-align:center;`;
@@ -196,10 +203,13 @@ function buildHancomCopy(
   const compact = `${body}font-family:'Malgun Gothic';text-align:center;`;
   const event = `${compact}background:#f3f3f3;font-weight:700;`;
   const htmlMonths = months.map((month) => {
-    const visualRows = month.weeks.reduce((sum, week) => sum + (week.events.length ? 2 : 1), 0);
+    const visualRows = month.weeks.reduce((sum, week) => (
+      sum + ((eventsBySlot.get(week.id)?.length ?? 0) > 0 ? 2 : 1)
+    ), 0);
     let monthCellWritten = false;
     const rows = month.weeks.map((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
+      const events = eventsBySlot.get(week.id) ?? week.events;
       const monthCell = monthCellWritten
         ? ""
         : `<td rowspan="${visualRows}" style="${compact}">${escapeHtml(month.month)}</td>`;
@@ -209,9 +219,9 @@ function buildHancomCopy(
         `<td style="${body}">${htmlText(payload.teaching)}</td>` +
         `<td style="${body}">${htmlText(payload.evaluation)}</td>`;
 
-      if (week.events.length) {
+      if (events.length) {
         return `<tr>${monthCell}<td rowspan="2" style="${compact}">${htmlText(week.week)}</td>` +
-          `<td colspan="4" style="${event}">${htmlText(week.events.join("\n"))}</td></tr>` +
+          `<td colspan="4" style="${event}">${htmlText(events.join("\n"))}</td></tr>` +
           `<tr>${contentCells}</tr>`;
       }
       return `<tr>${monthCell}<td style="${compact}">${htmlText(week.week)}</td>${contentCells}</tr>`;
@@ -231,11 +241,15 @@ function buildHancomCopy(
   const plain = months.flatMap((month) => [
     `■ ${month.month}월`,
     "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t평가방법",
-    ...month.weeks.map((week) => {
+    ...month.weeks.flatMap((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
-      return [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.evaluation]
+      const events = eventsBySlot.get(week.id) ?? week.events;
+      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.evaluation]
         .map((value) => value.replace(/\n/g, " / "))
         .join("\t");
+      if (!events.length) return [contentRow];
+      const eventRow = [month.month, week.week, events.join(" / "), "", "", ""].join("\t");
+      return [eventRow, contentRow];
     }),
   ]).join("\n");
 
@@ -249,8 +263,9 @@ function payloadIsEmpty(payload: WeekPayload) {
 export function PlanViewer() {
   const [subjectId, setSubjectId] = useState(planData.subjects[0].id);
   const [orders, setOrders] = useState<StoredOrders>({});
+  const [eventOrders, setEventOrders] = useState<StoredOrders>({});
   const [storageReady, setStorageReady] = useState(false);
-  const [draggedSlotId, setDraggedSlotId] = useState<string | null>(null);
+  const [draggedItem, setDraggedItem] = useState<DraggedItem | null>(null);
   const [dropSlotId, setDropSlotId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
   const subject = planData.subjects.find((item) => item.id === subjectId) ?? planData.subjects[0];
@@ -259,6 +274,10 @@ export function PlanViewer() {
   const slots = useMemo(() => months.flatMap((month) => month.weeks), [months]);
   const originalPayloads = useMemo(
     () => new Map(slots.map((week) => [week.id, week.payload])),
+    [slots],
+  );
+  const originalEvents = useMemo(
+    () => new Map(slots.map((week) => [week.id, week.events])),
     [slots],
   );
   const originalOrder = useMemo(() => slots.map((week) => week.id), [slots]);
@@ -270,20 +289,34 @@ export function PlanViewer() {
     slot.id,
     originalPayloads.get(activeOrder[index]) ?? slot.payload,
   ])), [activeOrder, originalPayloads, slots]);
-  const changed = activeOrder.some((id, index) => id !== originalOrder[index]);
+  const storedEventOrder = eventOrders[subject.id];
+  const validStoredEventOrder = storedEventOrder && storedEventOrder.length === originalOrder.length &&
+    storedEventOrder.every((id) => originalEvents.has(id));
+  const activeEventOrder = validStoredEventOrder ? storedEventOrder : originalOrder;
+  const eventsBySlot = useMemo(() => new Map(slots.map((slot, index) => [
+    slot.id,
+    originalEvents.get(activeEventOrder[index]) ?? slot.events,
+  ])), [activeEventOrder, originalEvents, slots]);
+  const payloadChanged = activeOrder.some((id, index) => id !== originalOrder[index]);
+  const eventChanged = activeEventOrder.some((id, index) => id !== originalOrder[index]);
+  const changed = payloadChanged || eventChanged;
 
   useEffect(() => {
     let active = true;
     let savedOrders: StoredOrders = {};
+    let savedEventOrders: StoredOrders = {};
     try {
-      const saved = window.localStorage.getItem(storageKey);
+      const saved = window.localStorage.getItem(payloadStorageKey);
       if (saved) savedOrders = JSON.parse(saved) as StoredOrders;
+      const savedEvents = window.localStorage.getItem(eventStorageKey);
+      if (savedEvents) savedEventOrders = JSON.parse(savedEvents) as StoredOrders;
     } catch {
       // 브라우저 저장소를 사용할 수 없어도 현재 편집은 계속할 수 있습니다.
     }
     queueMicrotask(() => {
       if (!active) return;
       setOrders(savedOrders);
+      setEventOrders(savedEventOrders);
       setStorageReady(true);
     });
     return () => {
@@ -294,16 +327,17 @@ export function PlanViewer() {
   useEffect(() => {
     if (!storageReady) return;
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify(orders));
+      window.localStorage.setItem(payloadStorageKey, JSON.stringify(orders));
+      window.localStorage.setItem(eventStorageKey, JSON.stringify(eventOrders));
     } catch {
       // 저장 실패는 복사 및 현재 세션 편집을 막지 않습니다.
     }
-  }, [orders, storageReady]);
+  }, [eventOrders, orders, storageReady]);
 
   const changeSubject = (nextSubjectId: string) => {
     setSubjectId(nextSubjectId);
     setCopyStatus("");
-    setDraggedSlotId(null);
+    setDraggedItem(null);
     setDropSlotId(null);
   };
 
@@ -325,8 +359,31 @@ export function PlanViewer() {
     if (target) reorderPayloads(slotId, target.id);
   };
 
+  const reorderEvents = (sourceSlotId: string, targetSlotId: string) => {
+    if (sourceSlotId === targetSlotId) return;
+    const sourceIndex = slots.findIndex((slot) => slot.id === sourceSlotId);
+    const targetIndex = slots.findIndex((slot) => slot.id === targetSlotId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const nextOrder = [...activeEventOrder];
+    const [movedEvent] = nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, movedEvent);
+    setEventOrders((current) => ({ ...current, [subject.id]: nextOrder }));
+    setCopyStatus("행사 병합 행의 위치가 이 기기에 임시 저장되었습니다.");
+  };
+
+  const moveEvent = (slotId: string, direction: -1 | 1) => {
+    const index = slots.findIndex((slot) => slot.id === slotId);
+    const target = slots[index + direction];
+    if (target) reorderEvents(slotId, target.id);
+  };
+
   const resetSubject = () => {
     setOrders((current) => {
+      const next = { ...current };
+      delete next[subject.id];
+      return next;
+    });
+    setEventOrders((current) => {
       const next = { ...current };
       delete next[subject.id];
       return next;
@@ -335,7 +392,7 @@ export function PlanViewer() {
   };
 
   const copyForHancom = async () => {
-    const content = buildHancomCopy(subject, months, payloadBySlot);
+    const content = buildHancomCopy(subject, months, payloadBySlot, eventsBySlot);
     try {
       if (navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
         await navigator.clipboard.write([new ClipboardItem({
@@ -363,7 +420,7 @@ export function PlanViewer() {
         <div>
           <p className={styles.kicker}>2026학년도 · 1학년 · 2학기</p>
           <h1>교수학습 및 평가 운영계획</h1>
-          <p className={styles.description}>월별 표를 한 화면에서 확인하고, 주차별 수업 내용을 원하는 순서로 배치할 수 있습니다.</p>
+          <p className={styles.description}>월별 표를 한 화면에서 확인하고, 주차별 수업 내용과 병합 행사 행을 원하는 순서로 배치할 수 있습니다.</p>
         </div>
         <div className={styles.topActions}>
           <a href={planData.sourceUrl} target="_blank" rel="noreferrer">원본 파일</a>
@@ -429,12 +486,14 @@ export function PlanViewer() {
 
         <aside className={styles.editGuide}>
           <strong>주차 내용 순서 변경</strong>
-          <p>주차·날짜와 학교 행사는 그대로 유지됩니다. <b>이동</b> 손잡이를 다른 주차에 놓거나 ↑↓ 버튼을 누르면 단원명·성취기준·수업방법·평가방법이 함께 이동하고, 사이 내용은 한 칸씩 정리됩니다.</p>
+          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행을 옮깁니다. 드래그하거나 ↑↓ 버튼을 사용하면 사이 항목이 한 칸씩 정리됩니다.</p>
           <p>편집 후 <b>한글용 전체 표 복사</b>를 누르고 한글 문서에서 기존 표를 선택해 붙여넣으세요.</p>
         </aside>
 
         {months.map((month) => {
-          const monthRowCount = month.weeks.reduce((sum, week) => sum + (week.events.length ? 2 : 1), 0);
+          const monthRowCount = month.weeks.reduce((sum, week) => (
+            sum + ((eventsBySlot.get(week.id)?.length ?? 0) > 0 ? 2 : 1)
+          ), 0);
           let monthCellRendered = false;
           return (
             <section key={month.month} id={`month-${subject.id}-${month.month}`} className={styles.monthSection}>
@@ -466,12 +525,13 @@ export function PlanViewer() {
                     {month.weeks.map((week) => {
                       const slotIndex = slots.findIndex((slot) => slot.id === week.id);
                       const payload = payloadBySlot.get(week.id) ?? week.payload;
+                      const events = eventsBySlot.get(week.id) ?? week.events;
                       const monthCell = !monthCellRendered ? (
                         <td rowSpan={monthRowCount} className={styles.compactCell}>{month.month}</td>
                       ) : null;
                       monthCellRendered = true;
                       const weekCell = (
-                        <td rowSpan={week.events.length ? 2 : 1} className={`${styles.compactCell} ${styles.weekCell}`}>
+                        <td rowSpan={events.length ? 2 : 1} className={`${styles.compactCell} ${styles.weekCell}`}>
                           <span>{week.week}</span>
                           <div className={styles.rowTools}>
                             <button
@@ -479,17 +539,17 @@ export function PlanViewer() {
                               className={styles.dragHandle}
                               draggable
                               onDragStart={(event) => {
-                                setDraggedSlotId(week.id);
+                                setDraggedItem({ kind: "payload", slotId: week.id });
                                 event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData("text/plain", week.id);
+                                event.dataTransfer.setData("text/plain", `payload:${week.id}`);
                               }}
                               onDragEnd={() => {
-                                setDraggedSlotId(null);
+                                setDraggedItem(null);
                                 setDropSlotId(null);
                               }}
                               aria-label={`${week.week.replace(/\n/g, " ")} 내용 이동`}
                             >
-                              ⋮⋮ 이동
+                              ⋮⋮ 내용 이동
                             </button>
                             <span className={styles.arrowTools}>
                               <button type="button" disabled={slotIndex === 0} onClick={() => movePayload(week.id, -1)} aria-label="이전 주차와 내용 바꾸기">↑</button>
@@ -508,7 +568,7 @@ export function PlanViewer() {
                       );
                       const dropHandlers = {
                         onDragOver: (event: DragEvent<HTMLTableRowElement>) => {
-                          if (!draggedSlotId) return;
+                          if (!draggedItem) return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
                           setDropSlotId(week.id);
@@ -516,21 +576,46 @@ export function PlanViewer() {
                         onDragLeave: () => setDropSlotId((current) => current === week.id ? null : current),
                         onDrop: (event: DragEvent<HTMLTableRowElement>) => {
                           event.preventDefault();
-                          const source = draggedSlotId ?? event.dataTransfer.getData("text/plain");
-                          if (source) reorderPayloads(source, week.id);
-                          setDraggedSlotId(null);
+                          if (draggedItem?.kind === "payload") reorderPayloads(draggedItem.slotId, week.id);
+                          if (draggedItem?.kind === "event") reorderEvents(draggedItem.slotId, week.id);
+                          setDraggedItem(null);
                           setDropSlotId(null);
                         },
                       };
-                      const rowClass = `${dropSlotId === week.id ? styles.dropTarget : ""} ${draggedSlotId === week.id ? styles.draggingRow : ""}`;
+                      const rowClass = `${dropSlotId === week.id ? styles.dropTarget : ""} ${draggedItem?.slotId === week.id ? styles.draggingRow : ""}`;
 
-                      if (week.events.length) {
+                      if (events.length) {
                         return (
                           <Fragment key={week.id}>
                             <tr className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>
                               {monthCell}
                               {weekCell}
-                              <td colSpan={4} className={styles.eventCell}>{week.events.join("\n")}</td>
+                              <td colSpan={4} className={styles.eventCell}>
+                                <span className={styles.eventText}>{events.join("\n")}</span>
+                                <span className={styles.eventTools}>
+                                  <button
+                                    type="button"
+                                    className={styles.dragHandle}
+                                    draggable
+                                    onDragStart={(event) => {
+                                      setDraggedItem({ kind: "event", slotId: week.id });
+                                      event.dataTransfer.effectAllowed = "move";
+                                      event.dataTransfer.setData("text/plain", `event:${week.id}`);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedItem(null);
+                                      setDropSlotId(null);
+                                    }}
+                                    aria-label={`${events.join(" ")} 행사 행 이동`}
+                                  >
+                                    ⋮⋮ 행사 이동
+                                  </button>
+                                  <span className={styles.arrowTools}>
+                                    <button type="button" disabled={slotIndex === 0} onClick={() => moveEvent(week.id, -1)} aria-label="행사 행을 이전 주차로 이동">↑</button>
+                                    <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => moveEvent(week.id, 1)} aria-label="행사 행을 다음 주차로 이동">↓</button>
+                                  </span>
+                                </span>
+                              </td>
                             </tr>
                             <tr className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>{payloadCells}</tr>
                           </Fragment>

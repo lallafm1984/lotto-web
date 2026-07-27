@@ -342,6 +342,7 @@
 
 .rowTools {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -411,6 +412,25 @@
   font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   font-weight: 700;
   text-align: center;
+}
+
+.eventText {
+  display: inline-block;
+  vertical-align: middle;
+  white-space: pre-line;
+}
+
+.eventTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.eventTools .dragHandle {
+  min-height: 26px;
 }
 
 .notice {
@@ -507,6 +527,7 @@
   .controls,
   .editGuide,
   .rowTools,
+  .eventTools,
   .copyStatus,
   .footer {
     display: none;
