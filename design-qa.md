@@ -79,3 +79,40 @@ No actionable P0/P1/P2 visual or responsive issues remain.
 - [x] Lint, TypeScript, production build, and browser console checks
 
 final result: passed
+
+---
+
+# Design QA — 교수학습 운영계획 행사 행 분할 (2026-07-27)
+
+- Source visual truth: `/tmp/codex-remote-attachments/019fa1ec-e871-7962-8111-028c076b9e4c/67fd6ecf-2a3e-46ff-a6a7-de350d1806b1/1-Photo-1.jpg`
+- Implementation: `http://localhost:4173/teaching-plan`
+- Implementation screenshot: `/Users/lim/Desktop/프로젝트/lotto-web/docs/qa/teaching-plan-event-split.png`
+- Combined source/implementation evidence: `/Users/lim/Desktop/프로젝트/lotto-web/docs/qa/teaching-plan-event-split-comparison.png`
+- Viewport: 591×1280, matching the supplied mobile reference dimensions
+- State: 시창·청음2, 9월, `1차 정기시험(10/1~10/2)` 행사 행을 `추석연휴(9/24~9/25)` 주차로 위로 이동한 상태
+
+## Focused comparison evidence
+
+The supplied reference establishes the table rule: an event with no unit, achievement, teaching, or evaluation payload occupies the entire weekly content area. The browser-rendered result applies the same rule, and when two such events share one week it renders two separate merged rows across the four content columns while the week/date cell spans both rows.
+
+## Structural verification
+
+- Target week row 1: week/date cell has `rowSpan=2`; `추석연휴(9/24~9/25)` cell has `colSpan=4`.
+- Target week row 2: `1차 정기시험(10/1~10/2)` is a separate cell with `colSpan=4`; it does not replace or concatenate with the first event.
+- No empty unit/achievement/teaching/evaluation row is rendered beneath the two target event rows.
+- A week with events and lesson content keeps independent event row(s) followed by the lesson-content row.
+- Hancom HTML export uses the same per-event rows, `rowspan`, and `colspan` calculation as the web table.
+
+## Primary interactions tested
+
+- Event row up-arrow moves only the selected event, not an entire week bundle.
+- Two events can coexist in a single week and remain individually movable.
+- Local draft state changes to `순서 변경됨` and the Hancom-copy action reports success.
+- Browser console warnings/errors: none.
+- ESLint and Next.js production build: passed.
+
+## Findings
+
+No actionable P0/P1/P2 visual, structural, or interaction issues remain for the requested merged-row behavior.
+
+final result: passed

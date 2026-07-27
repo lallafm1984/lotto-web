@@ -65,16 +65,18 @@ type NormalizedMonth = {
 };
 
 type StoredOrders = Record<string, string[]>;
+type StoredEventLayouts = Record<string, Record<string, string[]>>;
 
 type DraggedItem = {
   kind: "payload" | "event";
   slotId: string;
+  eventIndex?: number;
 };
 
 const planData = rawPlanData as unknown as PlanData;
 const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "evaluation"];
 const payloadStorageKey = "teaching-plan-week-order-v1";
-const eventStorageKey = "teaching-plan-event-order-v1";
+const eventStorageKey = "teaching-plan-event-layout-v2";
 
 function normalizedLabel(text: string) {
   return text.replace(/[\s·‧()]/g, "");
@@ -203,28 +205,33 @@ function buildHancomCopy(
   const compact = `${body}font-family:'Malgun Gothic';text-align:center;`;
   const event = `${compact}background:#f3f3f3;font-weight:700;`;
   const htmlMonths = months.map((month) => {
-    const visualRows = month.weeks.reduce((sum, week) => (
-      sum + ((eventsBySlot.get(week.id)?.length ?? 0) > 0 ? 2 : 1)
-    ), 0);
+    const visualRows = month.weeks.reduce((sum, week) => {
+      const payload = payloadBySlot.get(week.id) ?? week.payload;
+      const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
+      return sum + Math.max(1, eventCount + (payloadIsEmpty(payload) ? 0 : 1));
+    }, 0);
     let monthCellWritten = false;
     const rows = month.weeks.map((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
       const events = eventsBySlot.get(week.id) ?? week.events;
+      const hasContent = !payloadIsEmpty(payload);
+      const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
       const monthCell = monthCellWritten
         ? ""
         : `<td rowspan="${visualRows}" style="${compact}">${escapeHtml(month.month)}</td>`;
       monthCellWritten = true;
+      const weekCell = `<td rowspan="${weekRowCount}" style="${compact}">${htmlText(week.week)}</td>`;
       const contentCells = `<td style="${body}">${htmlText(payload.unit)}</td>` +
         `<td style="${body}">${htmlText(payload.achievement)}</td>` +
         `<td style="${body}">${htmlText(payload.teaching)}</td>` +
         `<td style="${body}">${htmlText(payload.evaluation)}</td>`;
-
-      if (events.length) {
-        return `<tr>${monthCell}<td rowspan="2" style="${compact}">${htmlText(week.week)}</td>` +
-          `<td colspan="4" style="${event}">${htmlText(events.join("\n"))}</td></tr>` +
-          `<tr>${contentCells}</tr>`;
-      }
-      return `<tr>${monthCell}<td style="${compact}">${htmlText(week.week)}</td>${contentCells}</tr>`;
+      const eventRows = events.map((eventText, index) => (
+        `<tr>${index === 0 ? monthCell + weekCell : ""}` +
+        `<td colspan="4" style="${event}">${htmlText(eventText)}</td></tr>`
+      )).join("");
+      if (events.length && hasContent) return `${eventRows}<tr>${contentCells}</tr>`;
+      if (events.length) return eventRows;
+      return `<tr>${monthCell}${weekCell}${contentCells}</tr>`;
     }).join("");
 
     return `<p style="font-family:'Batang';font-size:12pt;font-weight:700;margin:16px 0 6px;">■ ${escapeHtml(month.month)}월</p>` +
@@ -248,8 +255,8 @@ function buildHancomCopy(
         .map((value) => value.replace(/\n/g, " / "))
         .join("\t");
       if (!events.length) return [contentRow];
-      const eventRow = [month.month, week.week, events.join(" / "), "", "", ""].join("\t");
-      return [eventRow, contentRow];
+      const eventRows = events.map((eventText) => [month.month, week.week, eventText, "", "", ""].join("\t"));
+      return payloadIsEmpty(payload) ? eventRows : [...eventRows, contentRow];
     }),
   ]).join("\n");
 
@@ -263,7 +270,7 @@ function payloadIsEmpty(payload: WeekPayload) {
 export function PlanViewer() {
   const [subjectId, setSubjectId] = useState(planData.subjects[0].id);
   const [orders, setOrders] = useState<StoredOrders>({});
-  const [eventOrders, setEventOrders] = useState<StoredOrders>({});
+  const [eventLayouts, setEventLayouts] = useState<StoredEventLayouts>({});
   const [storageReady, setStorageReady] = useState(false);
   const [draggedItem, setDraggedItem] = useState<DraggedItem | null>(null);
   const [dropSlotId, setDropSlotId] = useState<string | null>(null);
@@ -289,34 +296,36 @@ export function PlanViewer() {
     slot.id,
     originalPayloads.get(activeOrder[index]) ?? slot.payload,
   ])), [activeOrder, originalPayloads, slots]);
-  const storedEventOrder = eventOrders[subject.id];
-  const validStoredEventOrder = storedEventOrder && storedEventOrder.length === originalOrder.length &&
-    storedEventOrder.every((id) => originalEvents.has(id));
-  const activeEventOrder = validStoredEventOrder ? storedEventOrder : originalOrder;
-  const eventsBySlot = useMemo(() => new Map(slots.map((slot, index) => [
+  const storedEventLayout = eventLayouts[subject.id];
+  const eventsBySlot = useMemo(() => new Map(slots.map((slot) => [
     slot.id,
-    originalEvents.get(activeEventOrder[index]) ?? slot.events,
-  ])), [activeEventOrder, originalEvents, slots]);
+    storedEventLayout?.[slot.id] ?? originalEvents.get(slot.id) ?? slot.events,
+  ])), [originalEvents, slots, storedEventLayout]);
   const payloadChanged = activeOrder.some((id, index) => id !== originalOrder[index]);
-  const eventChanged = activeEventOrder.some((id, index) => id !== originalOrder[index]);
+  const eventChanged = slots.some((slot) => {
+    const currentEvents = eventsBySlot.get(slot.id) ?? [];
+    const sourceEvents = originalEvents.get(slot.id) ?? [];
+    return currentEvents.length !== sourceEvents.length ||
+      currentEvents.some((eventText, index) => eventText !== sourceEvents[index]);
+  });
   const changed = payloadChanged || eventChanged;
 
   useEffect(() => {
     let active = true;
     let savedOrders: StoredOrders = {};
-    let savedEventOrders: StoredOrders = {};
+    let savedEventLayouts: StoredEventLayouts = {};
     try {
       const saved = window.localStorage.getItem(payloadStorageKey);
       if (saved) savedOrders = JSON.parse(saved) as StoredOrders;
       const savedEvents = window.localStorage.getItem(eventStorageKey);
-      if (savedEvents) savedEventOrders = JSON.parse(savedEvents) as StoredOrders;
+      if (savedEvents) savedEventLayouts = JSON.parse(savedEvents) as StoredEventLayouts;
     } catch {
       // 브라우저 저장소를 사용할 수 없어도 현재 편집은 계속할 수 있습니다.
     }
     queueMicrotask(() => {
       if (!active) return;
       setOrders(savedOrders);
-      setEventOrders(savedEventOrders);
+      setEventLayouts(savedEventLayouts);
       setStorageReady(true);
     });
     return () => {
@@ -328,11 +337,11 @@ export function PlanViewer() {
     if (!storageReady) return;
     try {
       window.localStorage.setItem(payloadStorageKey, JSON.stringify(orders));
-      window.localStorage.setItem(eventStorageKey, JSON.stringify(eventOrders));
+      window.localStorage.setItem(eventStorageKey, JSON.stringify(eventLayouts));
     } catch {
       // 저장 실패는 복사 및 현재 세션 편집을 막지 않습니다.
     }
-  }, [eventOrders, orders, storageReady]);
+  }, [eventLayouts, orders, storageReady]);
 
   const changeSubject = (nextSubjectId: string) => {
     setSubjectId(nextSubjectId);
@@ -359,22 +368,26 @@ export function PlanViewer() {
     if (target) reorderPayloads(slotId, target.id);
   };
 
-  const reorderEvents = (sourceSlotId: string, targetSlotId: string) => {
+  const moveEventToSlot = (sourceSlotId: string, eventIndex: number, targetSlotId: string) => {
     if (sourceSlotId === targetSlotId) return;
-    const sourceIndex = slots.findIndex((slot) => slot.id === sourceSlotId);
-    const targetIndex = slots.findIndex((slot) => slot.id === targetSlotId);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-    const nextOrder = [...activeEventOrder];
-    const [movedEvent] = nextOrder.splice(sourceIndex, 1);
-    nextOrder.splice(targetIndex, 0, movedEvent);
-    setEventOrders((current) => ({ ...current, [subject.id]: nextOrder }));
+    const nextLayout = Object.fromEntries(slots.map((slot) => [
+      slot.id,
+      [...(eventsBySlot.get(slot.id) ?? [])],
+    ]));
+    const sourceEvents = nextLayout[sourceSlotId];
+    const targetEvents = nextLayout[targetSlotId];
+    if (!sourceEvents || !targetEvents) return;
+    const [movedEvent] = sourceEvents.splice(eventIndex, 1);
+    if (!movedEvent) return;
+    targetEvents.push(movedEvent);
+    setEventLayouts((current) => ({ ...current, [subject.id]: nextLayout }));
     setCopyStatus("행사 병합 행의 위치가 이 기기에 임시 저장되었습니다.");
   };
 
-  const moveEvent = (slotId: string, direction: -1 | 1) => {
+  const moveEvent = (slotId: string, eventIndex: number, direction: -1 | 1) => {
     const index = slots.findIndex((slot) => slot.id === slotId);
     const target = slots[index + direction];
-    if (target) reorderEvents(slotId, target.id);
+    if (target) moveEventToSlot(slotId, eventIndex, target.id);
   };
 
   const resetSubject = () => {
@@ -383,7 +396,7 @@ export function PlanViewer() {
       delete next[subject.id];
       return next;
     });
-    setEventOrders((current) => {
+    setEventLayouts((current) => {
       const next = { ...current };
       delete next[subject.id];
       return next;
@@ -486,14 +499,16 @@ export function PlanViewer() {
 
         <aside className={styles.editGuide}>
           <strong>주차 내용 순서 변경</strong>
-          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행을 옮깁니다. 드래그하거나 ↑↓ 버튼을 사용하면 사이 항목이 한 칸씩 정리됩니다.</p>
+          <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
           <p>편집 후 <b>한글용 전체 표 복사</b>를 누르고 한글 문서에서 기존 표를 선택해 붙여넣으세요.</p>
         </aside>
 
         {months.map((month) => {
-          const monthRowCount = month.weeks.reduce((sum, week) => (
-            sum + ((eventsBySlot.get(week.id)?.length ?? 0) > 0 ? 2 : 1)
-          ), 0);
+          const monthRowCount = month.weeks.reduce((sum, week) => {
+            const payload = payloadBySlot.get(week.id) ?? week.payload;
+            const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
+            return sum + Math.max(1, eventCount + (payloadIsEmpty(payload) ? 0 : 1));
+          }, 0);
           let monthCellRendered = false;
           return (
             <section key={month.month} id={`month-${subject.id}-${month.month}`} className={styles.monthSection}>
@@ -526,12 +541,14 @@ export function PlanViewer() {
                       const slotIndex = slots.findIndex((slot) => slot.id === week.id);
                       const payload = payloadBySlot.get(week.id) ?? week.payload;
                       const events = eventsBySlot.get(week.id) ?? week.events;
+                      const hasContent = !payloadIsEmpty(payload);
+                      const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
                       const monthCell = !monthCellRendered ? (
                         <td rowSpan={monthRowCount} className={styles.compactCell}>{month.month}</td>
                       ) : null;
                       monthCellRendered = true;
                       const weekCell = (
-                        <td rowSpan={events.length ? 2 : 1} className={`${styles.compactCell} ${styles.weekCell}`}>
+                        <td rowSpan={weekRowCount} className={`${styles.compactCell} ${styles.weekCell}`}>
                           <span>{week.week}</span>
                           <div className={styles.rowTools}>
                             <button
@@ -577,7 +594,9 @@ export function PlanViewer() {
                         onDrop: (event: DragEvent<HTMLTableRowElement>) => {
                           event.preventDefault();
                           if (draggedItem?.kind === "payload") reorderPayloads(draggedItem.slotId, week.id);
-                          if (draggedItem?.kind === "event") reorderEvents(draggedItem.slotId, week.id);
+                          if (draggedItem?.kind === "event" && draggedItem.eventIndex !== undefined) {
+                            moveEventToSlot(draggedItem.slotId, draggedItem.eventIndex, week.id);
+                          }
                           setDraggedItem(null);
                           setDropSlotId(null);
                         },
@@ -587,37 +606,41 @@ export function PlanViewer() {
                       if (events.length) {
                         return (
                           <Fragment key={week.id}>
-                            <tr className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>
-                              {monthCell}
-                              {weekCell}
-                              <td colSpan={4} className={styles.eventCell}>
-                                <span className={styles.eventText}>{events.join("\n")}</span>
-                                <span className={styles.eventTools}>
-                                  <button
-                                    type="button"
-                                    className={styles.dragHandle}
-                                    draggable
-                                    onDragStart={(event) => {
-                                      setDraggedItem({ kind: "event", slotId: week.id });
-                                      event.dataTransfer.effectAllowed = "move";
-                                      event.dataTransfer.setData("text/plain", `event:${week.id}`);
-                                    }}
-                                    onDragEnd={() => {
-                                      setDraggedItem(null);
-                                      setDropSlotId(null);
-                                    }}
-                                    aria-label={`${events.join(" ")} 행사 행 이동`}
-                                  >
-                                    ⋮⋮ 행사 이동
-                                  </button>
-                                  <span className={styles.arrowTools}>
-                                    <button type="button" disabled={slotIndex === 0} onClick={() => moveEvent(week.id, -1)} aria-label="행사 행을 이전 주차로 이동">↑</button>
-                                    <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => moveEvent(week.id, 1)} aria-label="행사 행을 다음 주차로 이동">↓</button>
+                            {events.map((eventText, eventIndex) => (
+                              <tr key={`${week.id}:event:${eventIndex}`} className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>
+                                {eventIndex === 0 ? monthCell : null}
+                                {eventIndex === 0 ? weekCell : null}
+                                <td colSpan={4} className={styles.eventCell}>
+                                  <span className={styles.eventText}>{eventText}</span>
+                                  <span className={styles.eventTools}>
+                                    <button
+                                      type="button"
+                                      className={styles.dragHandle}
+                                      draggable
+                                      onDragStart={(event) => {
+                                        setDraggedItem({ kind: "event", slotId: week.id, eventIndex });
+                                        event.dataTransfer.effectAllowed = "move";
+                                        event.dataTransfer.setData("text/plain", `event:${week.id}:${eventIndex}`);
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggedItem(null);
+                                        setDropSlotId(null);
+                                      }}
+                                      aria-label={`${eventText} 행사 행 이동`}
+                                    >
+                                      ⋮⋮ 행사 이동
+                                    </button>
+                                    <span className={styles.arrowTools}>
+                                      <button type="button" disabled={slotIndex === 0} onClick={() => moveEvent(week.id, eventIndex, -1)} aria-label={`${eventText} 행사 행을 이전 주차로 이동`}>↑</button>
+                                      <button type="button" disabled={slotIndex === slots.length - 1} onClick={() => moveEvent(week.id, eventIndex, 1)} aria-label={`${eventText} 행사 행을 다음 주차로 이동`}>↓</button>
+                                    </span>
                                   </span>
-                                </span>
-                              </td>
-                            </tr>
-                            <tr className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>{payloadCells}</tr>
+                                </td>
+                              </tr>
+                            ))}
+                            {hasContent ? (
+                              <tr className={`${styles.weekGroup} ${rowClass}`} {...dropHandlers}>{payloadCells}</tr>
+                            ) : null}
                           </Fragment>
                         );
                       }
