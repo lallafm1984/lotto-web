@@ -152,22 +152,13 @@ function buildHancomCopy(
     const columns = layout.columnWidthsMm.map((width) => (
       `<col width="${Math.round((width / 25.4) * 96)}" style="width:${width}mm;">`
     )).join("");
-    const visualRows = month.weeks.reduce((sum, week) => {
-      const payload = payloadBySlot.get(week.id) ?? week.payload;
-      const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
-      return sum + Math.max(1, eventCount + (payloadIsEmpty(payload) ? 0 : 1));
-    }, 0);
-    let monthCellWritten = false;
     const rows = month.weeks.map((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
       const events = eventsBySlot.get(week.id) ?? week.events;
       const hasContent = !payloadIsEmpty(payload);
       const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
       const rowHeights = weekRowHeights(week, events.length, hasContent);
-      const monthCell = monthCellWritten
-        ? ""
-        : `<td rowspan="${visualRows}" lang="ko" style="${centered}font-size:9pt;">${htmlText(month.month, `${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;`)}</td>`;
-      monthCellWritten = true;
+      const monthCell = `<td rowspan="${weekRowCount}" lang="ko" style="${centered}font-size:9pt;">${htmlText(month.month, `${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;`)}</td>`;
       const weekCell = `<td rowspan="${weekRowCount}" style="${centered}">${weekHtml(week.week)}</td>`;
       const contentCells = `<td lang="ko" style="${centered}">${htmlText(payload.unit)}</td>` +
         `<td style="${achievement}">${htmlText(payload.achievement)}</td>` +
@@ -635,12 +626,6 @@ export function PlanViewer() {
         {months.map((month) => {
           const tableLayout = hancomTableLayout(subject, month);
           const totalColumnWidth = tableLayout.columnWidthsMm.reduce((sum, width) => sum + width, 0);
-          const monthRowCount = month.weeks.reduce((sum, week) => {
-            const payload = payloadBySlot.get(week.id) ?? week.payload;
-            const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
-            return sum + Math.max(1, eventCount + (payloadIsEmpty(payload) ? 0 : 1));
-          }, 0);
-          let monthCellRendered = false;
           return (
             <section key={month.month} id={`month-${subject.id}-${month.month}`} className={styles.monthSection}>
               <div className={styles.monthHeading}>
@@ -681,10 +666,9 @@ export function PlanViewer() {
                       const events = eventsBySlot.get(week.id) ?? week.events;
                       const hasContent = !payloadIsEmpty(payload);
                       const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
-                      const monthCell = !monthCellRendered ? (
-                        <td rowSpan={monthRowCount} className={styles.compactCell}>{month.month}</td>
-                      ) : null;
-                      monthCellRendered = true;
+                      const monthCell = (
+                        <td rowSpan={weekRowCount} className={styles.compactCell}>{month.month}</td>
+                      );
                       const weekCell = (
                         <td rowSpan={weekRowCount} className={`${styles.compactCell} ${styles.weekCell}`}>
                           <span>{week.week}</span>
