@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { normalizeSubject, normalizedLabel, payloadIsEmpty } from "./plan-model";
+import { normalizeSubject, normalizedLabel, originalSixColumnLayout, payloadIsEmpty } from "./plan-model";
 import type {
   FieldKey,
   NormalizedWeek,
@@ -296,25 +296,6 @@ function planHeader(table: PlanTable, predicate: (label: string) => boolean) {
   return table.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)));
 }
 
-function scaledColumnWidths(table: PlanTable) {
-  const headers = [
-    planHeader(table, (label) => label === "월"),
-    planHeader(table, (label) => label === "주"),
-    planHeader(table, (label) => label.includes("단원명")),
-    planHeader(table, (label) => label.includes("교육과정성취기준")),
-    planHeader(table, (label) => label === "수업방법"),
-    planHeader(table, (label) => label.includes("수업평가연계의주안점")),
-  ];
-  const topHeaders = table.cells.filter((cell) => cell.header && cell.row === 0);
-  const total = topHeaders.reduce((sum, cell) => sum + cell.width, 0) || 47836;
-  const fallback = [2264, 3138, 4415, 9375, 4848, 12685];
-  const visible = headers.map((header, index) => header?.width || fallback[index]);
-  const visibleTotal = visible.reduce((sum, width) => sum + width, 0);
-  const scaled = visible.map((width) => Math.round((width / visibleTotal) * total));
-  scaled[scaled.length - 1] += total - scaled.reduce((sum, width) => sum + width, 0);
-  return { widths: scaled, total };
-}
-
 function weekRowHeightsHwp(week: NormalizedWeek, eventCount: number, hasContent: boolean) {
   const eventMinimum = 1366;
   const total = Math.max(eventMinimum, week.height);
@@ -351,7 +332,7 @@ function rewritePlanTable(
     const col = numberAttribute(address, "colAddr");
     if (row >= 2 && !genericByColumn.has(col)) genericByColumn.set(col, cell);
   });
-  const { widths, total } = scaledColumnWidths(planTable);
+  const { widths, total } = originalSixColumnLayout(planTable);
   const rows = childrenByName(tableElement, "tr");
   const headerCells = rows.slice(0, 2).flatMap((row) => childrenByName(row, "tc"));
   const headerAt = (row: number, col: number) => headerCells.find((cell) => {

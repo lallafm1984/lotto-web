@@ -9,10 +9,47 @@ import type {
 
 export const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "focus"];
 
+const originalColumnWidthFallback = [2264, 3138, 4415, 9375] as const;
+const originalProcessGroupWidthFallback = 28644;
+const originalVisibleProcessWidthsFallback = [4848, 12685] as const;
+const originalHeaderHeightFallback = 4104;
+const originalGroupHeaderHeightFallback = 1466;
+
 type FieldRange = { start: number; end: number };
 
 export function normalizedLabel(text: string) {
   return text.replace(/[\s·‧()]/g, "");
+}
+
+export function originalSixColumnLayout(table?: PlanTable) {
+  const header = (predicate: (label: string) => boolean) => (
+    table?.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)))
+  );
+  const headerWidth = (predicate: (label: string) => boolean) => header(predicate)?.width ?? 0;
+  const fixedWidths = [
+    headerWidth((label) => label === "월") || originalColumnWidthFallback[0],
+    headerWidth((label) => label === "주") || originalColumnWidthFallback[1],
+    headerWidth((label) => label.includes("단원명")) || originalColumnWidthFallback[2],
+    headerWidth((label) => label.includes("교육과정성취기준")) || originalColumnWidthFallback[3],
+  ];
+  const processGroupWidth = headerWidth((label) => label.includes("탐구-실행-성찰과정"))
+    || originalProcessGroupWidthFallback;
+  const methodSourceWidth = headerWidth((label) => label === "수업방법")
+    || originalVisibleProcessWidthsFallback[0];
+  const focusSourceWidth = headerWidth((label) => label.includes("수업평가연계의주안점"))
+    || originalVisibleProcessWidthsFallback[1];
+  const visibleProcessTotal = methodSourceWidth + focusSourceWidth;
+  const methodWidth = Math.round((methodSourceWidth / visibleProcessTotal) * processGroupWidth);
+  const widths = [...fixedWidths, methodWidth, processGroupWidth - methodWidth];
+  const headerHeight = header((label) => label === "월")?.height || originalHeaderHeightFallback;
+  const groupHeaderHeight = header((label) => label.includes("탐구-실행-성찰과정"))?.height
+    || originalGroupHeaderHeightFallback;
+
+  return {
+    widths,
+    total: fixedWidths.reduce((sum, width) => sum + width, 0) + processGroupWidth,
+    headerHeights: [groupHeaderHeight, Math.max(1, headerHeight - groupHeaderHeight)],
+  };
 }
 
 export function visibleTable(table: PlanTable): PlanTable {

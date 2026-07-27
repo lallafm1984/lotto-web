@@ -10,7 +10,7 @@ import {
   saveEditedHwpx,
 } from "./hwpx-client";
 import type { PreparedHwpx } from "./hwpx-client";
-import { fieldKeys, normalizeSubject, normalizedLabel, payloadIsEmpty } from "./plan-model";
+import { fieldKeys, normalizeSubject, originalSixColumnLayout, payloadIsEmpty } from "./plan-model";
 import type {
   NormalizedMonth,
   NormalizedWeek,
@@ -59,9 +59,6 @@ function headerText(value: string) {
 }
 
 const hwpUnitsPerMillimeter = 7200 / 25.4;
-const originalTableWidthFallback = 47836;
-const visibleColumnWidthsFallback = [2264, 3138, 4415, 9375, 4848, 12685];
-
 function millimeters(hwpUnits: number) {
   return Math.round((hwpUnits / hwpUnitsPerMillimeter) * 100) / 100;
 }
@@ -69,49 +66,14 @@ function millimeters(hwpUnits: number) {
 function hancomTableLayout(subject: PlanSubject, month: NormalizedMonth) {
   const sourceMonth = subject.months.find((item) => item.month === month.month);
   const sourceTable = sourceMonth?.tables.find((table) => (
-    table.cells.some((cell) => cell.header && normalizedLabel(cell.text).includes("단원명"))
+    table.cells.some((cell) => cell.header && cell.text.includes("단원명"))
   ));
-  if (!sourceTable) {
-    const visibleTotal = visibleColumnWidthsFallback.reduce((sum, width) => sum + width, 0);
-    return {
-      tableWidthMm: millimeters(originalTableWidthFallback),
-      columnWidthsMm: visibleColumnWidthsFallback.map((width) => (
-        millimeters((width / visibleTotal) * originalTableWidthFallback)
-      )),
-    };
-  }
-
-  const headerWidth = (predicate: (label: string) => boolean) => (
-    sourceTable.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)))?.width ?? 0
-  );
-  const visibleWidths = [
-    headerWidth((label) => label === "월"),
-    headerWidth((label) => label === "주"),
-    headerWidth((label) => label.includes("단원명")),
-    headerWidth((label) => label.includes("교육과정성취기준")),
-    headerWidth((label) => label === "수업방법"),
-    headerWidth((label) => label.includes("수업평가연계의주안점")),
-  ];
-  const hiddenWidths = [
-    headerWidth((label) => label.startsWith("탐구과정기능")),
-    headerWidth((label) => label === "평가방법"),
-  ];
-  const sourceTotal = [...visibleWidths, ...hiddenWidths].every(Boolean)
-    ? [...visibleWidths, ...hiddenWidths].reduce((sum, width) => sum + width, 0)
-    : originalTableWidthFallback;
-  const visibleTotal = visibleWidths.reduce((sum, width) => sum + width, 0);
-  if (!visibleTotal || visibleWidths.some((width) => !width)) {
-    return {
-      tableWidthMm: millimeters(sourceTotal),
-      columnWidthsMm: visibleColumnWidthsFallback.map((width) => (
-        millimeters((width / visibleColumnWidthsFallback.reduce((sum, item) => sum + item, 0)) * sourceTotal)
-      )),
-    };
-  }
+  const layout = originalSixColumnLayout(sourceTable);
 
   return {
-    tableWidthMm: millimeters(sourceTotal),
-    columnWidthsMm: visibleWidths.map((width) => millimeters((width / visibleTotal) * sourceTotal)),
+    tableWidthMm: millimeters(layout.total),
+    columnWidthsMm: layout.widths.map(millimeters),
+    headerRowHeightsMm: layout.headerHeights.map(millimeters),
   };
 }
 
@@ -181,10 +143,10 @@ function buildHancomCopy(
     return monthHeading +
       `<table border="1" cellspacing="0" cellpadding="0" width="${tableWidthPx}" style="width:${layout.tableWidthMm}mm;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin:0;border:0.12mm solid #000;mso-table-layout-alt:fixed;">` +
       `<colgroup>${columns}</colgroup>` +
-      `<thead><tr style="height:${millimeters(1466)}mm;"><th rowspan="2" lang="ko" style="${header}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("주")}</th>` +
+      `<thead><tr style="height:${layout.headerRowHeightsMm[0]}mm;"><th rowspan="2" lang="ko" style="${header}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("주")}</th>` +
       `<th rowspan="2" lang="ko" style="${header}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("교육과정 성취기준")}</th>` +
       `<th colspan="2" lang="ko" style="${header}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
-      `<tr style="height:${millimeters(2638)}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("수업·평가 연계의 주안점")}</th></tr></thead>` +
+      `<tr style="height:${layout.headerRowHeightsMm[1]}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("수업·평가 연계의 주안점")}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
@@ -647,14 +609,14 @@ export function PlanViewer() {
                     ))}
                   </colgroup>
                   <thead>
-                    <tr>
+                    <tr style={{ height: `${tableLayout.headerRowHeightsMm[0]}mm` }}>
                       <th rowSpan={2}>월</th>
                       <th rowSpan={2}>주</th>
                       <th rowSpan={2}>단원명<br />(영역명)</th>
                       <th rowSpan={2}>교육과정 성취기준</th>
                       <th colSpan={2}>탐구-실행-성찰과정</th>
                     </tr>
-                    <tr>
+                    <tr style={{ height: `${tableLayout.headerRowHeightsMm[1]}mm` }}>
                       <th>수업방법</th>
                       <th>수업·평가 연계의 주안점</th>
                     </tr>
