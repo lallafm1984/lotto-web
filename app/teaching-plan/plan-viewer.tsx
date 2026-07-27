@@ -440,28 +440,44 @@ export function PlanViewer() {
     setCopyStatus("현재 과목을 원본 순서로 되돌렸습니다.");
   };
 
-  const copyForHancom = async () => {
-    const content = buildHancomCopy(subject, months, payloadBySlot, eventsBySlot);
+  const copyPlanForHancom = async (
+    targetMonths: NormalizedMonth[],
+    successMessage: string,
+    textFallbackMessage: string,
+  ) => {
+    const content = buildHancomCopy(subject, targetMonths, payloadBySlot, eventsBySlot);
     try {
       if (navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
         await navigator.clipboard.write([new ClipboardItem({
           "text/html": new Blob([content.html], { type: "text/html" }),
           "text/plain": new Blob([content.plain], { type: "text/plain" }),
         })]);
-        setCopyStatus("현재 과목의 전체 월 표를 한글용 형식으로 복사했습니다.");
+        setCopyStatus(successMessage);
       } else {
         await navigator.clipboard.writeText(content.plain);
-        setCopyStatus("표 복사가 제한되어 셀 붙여넣기용 텍스트로 복사했습니다.");
+        setCopyStatus(textFallbackMessage);
       }
     } catch {
       try {
         await navigator.clipboard.writeText(content.plain);
-        setCopyStatus("표 복사가 제한되어 셀 붙여넣기용 텍스트로 복사했습니다.");
+        setCopyStatus(textFallbackMessage);
       } catch {
         setCopyStatus("복사 권한을 허용한 뒤 다시 시도해 주세요.");
       }
     }
   };
+
+  const copyForHancom = () => copyPlanForHancom(
+    months,
+    "현재 과목의 전체 월 표를 한글용 형식으로 복사했습니다.",
+    "전체 월 표를 셀 붙여넣기용 텍스트로 복사했습니다.",
+  );
+
+  const copyMonthForHancom = (month: NormalizedMonth) => copyPlanForHancom(
+    [month],
+    `${month.month}월 표를 한글용 형식으로 복사했습니다.`,
+    `${month.month}월 표를 셀 붙여넣기용 텍스트로 복사했습니다.`,
+  );
 
   return (
     <main className={styles.page} lang="ko">
@@ -536,7 +552,7 @@ export function PlanViewer() {
         <aside className={styles.editGuide}>
           <strong>주차 내용 순서 변경</strong>
           <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 행사 행의 <b>전체</b>는 해당 주의 수업 내용과 행사를 함께 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
-          <p>편집 후 <b>한글용 전체 표 복사</b>를 누르고 한글 문서에서 기존 표를 선택해 붙여넣으세요.</p>
+          <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를, 전 월을 복사할 때는 <b>한글용 전체 표 복사</b>를 누르세요.</p>
         </aside>
 
         {months.map((month) => {
@@ -548,7 +564,17 @@ export function PlanViewer() {
           let monthCellRendered = false;
           return (
             <section key={month.month} id={`month-${subject.id}-${month.month}`} className={styles.monthSection}>
-              <div className={styles.monthHeading}><span>■</span> {month.month}월</div>
+              <div className={styles.monthHeading}>
+                <span className={styles.monthTitle}><span className={styles.monthBullet}>■</span> {month.month}월</span>
+                <button
+                  type="button"
+                  className={styles.monthCopyButton}
+                  onClick={() => copyMonthForHancom(month)}
+                  aria-label={`${subject.name} ${month.month}월 표를 한글용 형식으로 복사`}
+                >
+                  {month.month}월 표 복사
+                </button>
+              </div>
               <div className={styles.tableScroller} tabIndex={0} aria-label={`${subject.name} ${month.month}월 운영계획 편집 표`}>
                 <table className={styles.originalTable}>
                   <colgroup>
