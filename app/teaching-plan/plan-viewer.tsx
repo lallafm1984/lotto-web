@@ -566,7 +566,8 @@ export function PlanViewer() {
                               }}
                               aria-label={`${week.week.replace(/\n/g, " ")} 내용 이동`}
                             >
-                              ⋮⋮ 내용 이동
+                              <span className={styles.desktopDragLabel}>⋮⋮ 내용 이동</span>
+                              <span className={styles.mobileDragLabel}>이동</span>
                             </button>
                             <span className={styles.arrowTools}>
                               <button type="button" disabled={slotIndex === 0} onClick={() => movePayload(week.id, -1)} aria-label="이전 주차와 내용 바꾸기">↑</button>

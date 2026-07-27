@@ -366,6 +366,10 @@
   padding: 0 7px;
 }
 
+.mobileDragLabel {
+  display: none;
+}
+
 .dragHandle:active {
   cursor: grabbing;
 }
@@ -460,6 +464,26 @@
   margin: 4px 0;
 }
 
+@media (max-width: 1300px) {
+  .sectionTitle,
+  .editGuide,
+  .monthHeading,
+  .originalTable,
+  .notice {
+    min-width: 0;
+  }
+
+  .tableScroller {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .originalTable {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .topbar {
     align-items: flex-start;
@@ -477,6 +501,77 @@
     margin-top: 16px;
     padding: 26px 20px 32px;
     box-shadow: none;
+  }
+
+  .sectionTitle {
+    grid-template-columns: 38px minmax(0, 1fr);
+    font-size: 16px;
+  }
+
+  .sectionTitle strong,
+  .sectionTitle span {
+    padding: 8px 6px;
+  }
+
+  .editGuide {
+    margin: 14px 0 20px;
+    padding: 12px;
+    font-size: 12px;
+  }
+
+  .monthHeading {
+    font-size: 18px;
+  }
+
+  .originalTable {
+    font-size: clamp(7px, 1.65vw, 9.5px);
+    line-height: 1.3;
+  }
+
+  .originalTable th,
+  .originalTable td {
+    padding: 4px 2px;
+  }
+
+  .originalTable th {
+    font-size: clamp(7px, 1.5vw, 8.5px);
+    line-height: 1.25;
+  }
+
+  .weekCell {
+    padding: 4px 2px !important;
+  }
+
+  .rowTools {
+    gap: 2px;
+    margin-top: 4px;
+  }
+
+  .dragHandle {
+    min-height: 22px;
+    padding: 0 3px;
+    font-size: 8px;
+  }
+
+  .weekCell .dragHandle {
+    width: 100%;
+    min-width: 0;
+    padding: 0 1px;
+  }
+
+  .arrowTools button {
+    width: 22px;
+    min-height: 22px;
+    font-size: 9px;
+  }
+
+  .eventTools {
+    gap: 2px;
+    margin-left: 5px;
+  }
+
+  .eventTools .dragHandle {
+    min-height: 22px;
   }
 
   .footer {
@@ -515,6 +610,62 @@
 
   .monthTabs {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .paper {
+    padding: 22px 8px 28px;
+  }
+
+  .paperHeading {
+    margin-bottom: 22px;
+  }
+
+  .paperHeading p {
+    font-size: 12px;
+  }
+
+  .paperHeading h2 {
+    font-size: 22px;
+  }
+
+  .originalTable {
+    font-size: clamp(6.8px, 2vw, 8px);
+  }
+
+  .originalTable th {
+    font-size: clamp(6.8px, 1.85vw, 7.5px);
+  }
+
+  .originalTable th,
+  .originalTable td {
+    padding: 3px 1px;
+  }
+
+  .desktopDragLabel {
+    display: none;
+  }
+
+  .mobileDragLabel {
+    display: inline;
+  }
+
+  .weekCell .arrowTools {
+    flex-direction: column;
+  }
+
+  .eventTools {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 3px 0 0;
+  }
+
+  .eventText {
+    display: block;
+  }
+
+  .emptyPayload::after {
+    font-size: 7px;
   }
 }
 

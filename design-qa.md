@@ -82,6 +82,57 @@ final result: passed
 
 ---
 
+# Design QA — 교수학습 운영계획 세로 화면 맞춤 (2026-07-27)
+
+- Source visual truth: `/tmp/codex-remote-attachments/019fa1ec-e871-7962-8111-028c076b9e4c/67fd6ecf-2a3e-46ff-a6a7-de350d1806b1/1-Photo-1.jpg`
+- Pre-fix implementation screenshot: `/Users/lim/Desktop/프로젝트/lotto-web/docs/qa/teaching-plan-mobile-before.png`
+- Post-fix implementation screenshot: `/Users/lim/Desktop/프로젝트/lotto-web/docs/qa/teaching-plan-portrait-591-after.png`
+- Combined source/implementation evidence: `/Users/lim/Desktop/프로젝트/lotto-web/docs/qa/teaching-plan-mobile-fit-comparison.png`
+- Source dimensions: 591×1280 px
+- Implementation capture: 576×1248 px at device scale 1; normalized proportionally to 591×1280 px for the combined comparison
+- CSS viewports tested: 375 px phone portrait, 576 px large-phone portrait, and 1009 px tablet portrait
+- State: 시창·청음2, all months sequentially visible, moved-event split rows retained
+
+## Findings and comparison history
+
+### Iteration 1 — P1 fixed
+
+- Earlier finding: the phone viewport was 375 px, but the document body measured 1200 px and the table scroller measured 1180 px. The right-side columns required horizontal scrolling and appeared cropped in portrait orientation.
+- Fix: removed the 1180 px minimum-width constraint below 1300 px, sized the table and scroller to the available document width, reduced mobile cell typography and padding, shortened the week movement label, stacked narrow arrow controls, and allowed event controls to wrap.
+- Post-fix evidence: at 375 px, the body, table scroller, and table widths are 375 px, 359 px, and 359 px respectively. At the 576 px capture they are 576 px, 536 px, and 536 px. At the 1009 px tablet viewport the table is 887 px wide and remains inside the viewport. No page-level or table-level horizontal overflow remains.
+
+## Full-view comparison evidence
+
+The combined image places the supplied portrait document reference beside the browser-rendered portrait result. The implementation retains the same monthly sequence, fixed table grid, merged event rows, and document-like visual hierarchy while fitting every displayed column—including the right border and evaluation column—inside the portrait viewport.
+
+## Focused comparison evidence
+
+The 8월, 9월, and 10월 tables are visible together in the post-fix portrait capture. Their left and right borders, all six displayed columns, merged event rows, and movement controls are simultaneously visible, so no additional crop was required.
+
+## Fidelity surfaces
+
+- Fonts and typography: Batang/AppleMyungjo document typography and Malgun Gothic controls remain intact; mobile table text scales to 6.8–9.5 px only where necessary to preserve the complete grid.
+- Spacing and layout rhythm: document padding drops to 8 px on narrow phones; cell padding and control spacing are reduced proportionally without collapsing row separation.
+- Colors and visual tokens: original grayscale table headers, black grid lines, green editing controls, and event-row fills are unchanged.
+- Image quality and assets: the page contains no recreated raster assets; the source screenshot is used only as comparison evidence.
+- Copy and content: all subject, week, event, achievement, teaching, and evaluation content is preserved; only the visible mobile movement label is shortened from `내용 이동` to `이동` while its accessible label remains complete.
+
+## Primary interactions tested
+
+- 8월 anchor navigation at phone and large-phone portrait sizes
+- Moved-event split-row state remains visible and structurally intact
+- Table and page overflow measurements at 375 px, 576 px, and 1009 px
+- Browser console warnings/errors: none
+- ESLint and Next.js production build: passed
+
+## Findings
+
+No actionable P0/P1/P2 responsive, structural, or interaction issues remain for portrait table fitting.
+
+final result: passed
+
+---
+
 # Design QA — 교수학습 운영계획 행사 행 분할 (2026-07-27)
 
 - Source visual truth: `/tmp/codex-remote-attachments/019fa1ec-e871-7962-8111-028c076b9e4c/67fd6ecf-2a3e-46ff-a6a7-de350d1806b1/1-Photo-1.jpg`
