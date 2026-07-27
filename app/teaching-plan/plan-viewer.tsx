@@ -55,6 +55,7 @@ type NormalizedWeek = {
   id: string;
   month: string;
   week: string;
+  height: number;
   events: string[];
   payload: WeekPayload;
 };
@@ -72,6 +73,8 @@ type DraggedItem = {
   slotId: string;
   eventIndex?: number;
 };
+
+type HancomCopyScope = "all" | "month";
 
 const planData = rawPlanData as unknown as PlanData;
 const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "evaluation"];
@@ -170,6 +173,7 @@ function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
           id: `${subject.id}:${month.month}:${tableIndex}:${weekIndex}`,
           month: month.month,
           week: weekCell.text.trim(),
+          height: weekCell.height,
           events,
           payload,
         });
@@ -193,18 +197,101 @@ function htmlText(value: string) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+const hwpUnitsPerMillimeter = 7200 / 25.4;
+const originalTableWidthFallback = 47836;
+const visibleColumnWidthsFallback = [2264, 3138, 4415, 9375, 4848, 4848];
+
+function millimeters(hwpUnits: number) {
+  return Math.round((hwpUnits / hwpUnitsPerMillimeter) * 100) / 100;
+}
+
+function hancomTableLayout(subject: PlanSubject, month: NormalizedMonth) {
+  const sourceMonth = subject.months.find((item) => item.month === month.month);
+  const sourceTable = sourceMonth?.tables.find((table) => (
+    table.cells.some((cell) => cell.header && normalizedLabel(cell.text).includes("단원명"))
+  ));
+  if (!sourceTable) {
+    const visibleTotal = visibleColumnWidthsFallback.reduce((sum, width) => sum + width, 0);
+    return {
+      tableWidthMm: millimeters(originalTableWidthFallback),
+      columnWidthsMm: visibleColumnWidthsFallback.map((width) => (
+        millimeters((width / visibleTotal) * originalTableWidthFallback)
+      )),
+    };
+  }
+
+  const headerWidth = (predicate: (label: string) => boolean) => (
+    sourceTable.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)))?.width ?? 0
+  );
+  const visibleWidths = [
+    headerWidth((label) => label === "월"),
+    headerWidth((label) => label === "주"),
+    headerWidth((label) => label.includes("단원명")),
+    headerWidth((label) => label.includes("교육과정성취기준")),
+    headerWidth((label) => label === "수업방법"),
+    headerWidth((label) => label === "평가방법"),
+  ];
+  const hiddenWidths = [
+    headerWidth((label) => label.startsWith("탐구과정기능")),
+    headerWidth((label) => label.includes("수업평가연계의주안점")),
+  ];
+  const requiredWidths = [...visibleWidths, hiddenWidths[1]];
+  const sourceTotal = requiredWidths.every(Boolean)
+    ? requiredWidths.reduce((sum, width) => sum + width, 0) + hiddenWidths[0]
+    : originalTableWidthFallback;
+  const visibleTotal = visibleWidths.reduce((sum, width) => sum + width, 0);
+  if (!visibleTotal || visibleWidths.some((width) => !width)) {
+    return {
+      tableWidthMm: millimeters(sourceTotal),
+      columnWidthsMm: visibleColumnWidthsFallback.map((width) => (
+        millimeters((width / visibleColumnWidthsFallback.reduce((sum, item) => sum + item, 0)) * sourceTotal)
+      )),
+    };
+  }
+
+  return {
+    tableWidthMm: millimeters(sourceTotal),
+    columnWidthsMm: visibleWidths.map((width) => millimeters((width / visibleTotal) * sourceTotal)),
+  };
+}
+
+function weekHtml(value: string) {
+  const [weekNumber = "", ...dates] = value.split("\n");
+  return `<span style="font-size:9pt;">${escapeHtml(weekNumber)}</span>` +
+    dates.map((line) => `<br><span style="font-size:8pt;">${escapeHtml(line)}</span>`).join("");
+}
+
+function weekRowHeights(week: NormalizedWeek, eventCount: number, hasContent: boolean) {
+  const eventMinimum = millimeters(1366);
+  const weekHeight = Math.max(eventMinimum, millimeters(week.height));
+  if (!eventCount) return [weekHeight];
+  if (!hasContent) {
+    return Array.from({ length: eventCount }, () => Math.round((weekHeight / eventCount) * 100) / 100);
+  }
+  const contentHeight = Math.max(eventMinimum, weekHeight - eventMinimum * eventCount);
+  return [...Array.from({ length: eventCount }, () => eventMinimum), contentHeight];
+}
+
 function buildHancomCopy(
   subject: PlanSubject,
   months: NormalizedMonth[],
   payloadBySlot: Map<string, WeekPayload>,
   eventsBySlot: Map<string, string[]>,
+  scope: HancomCopyScope,
 ) {
-  const border = "border:1px solid #333;padding:6px 7px;vertical-align:middle;white-space:pre-wrap;";
-  const header = `${border}background:#e7e7e7;font-family:'Malgun Gothic';font-size:9pt;font-weight:700;text-align:center;`;
-  const body = `${border}font-family:'Batang';font-size:9pt;line-height:1.45;`;
-  const compact = `${body}font-family:'Malgun Gothic';text-align:center;`;
-  const event = `${compact}background:#f3f3f3;font-weight:700;`;
+  const font = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:8pt;font-weight:400;font-stretch:95%;letter-spacing:-0.1em;line-height:130%;color:#000;";
+  const border = "border:0.12mm solid #000;padding:0.5mm 1.8mm;mso-padding-alt:0.5mm 1.8mm 0.5mm 1.8mm;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:break-word;";
+  const header = `${border}${font}background-color:#fff;font-size:9pt;font-weight:700;text-align:center;`;
+  const body = `${border}${font}`;
+  const centered = `${body}text-align:center;`;
+  const achievement = `${body}text-align:justify;text-justify:inter-character;`;
+  const event = `${centered}height:auto;`;
   const htmlMonths = months.map((month) => {
+    const layout = hancomTableLayout(subject, month);
+    const tableWidthPx = Math.round((layout.tableWidthMm / 25.4) * 96);
+    const columns = layout.columnWidthsMm.map((width) => (
+      `<col width="${Math.round((width / 25.4) * 96)}" style="width:${width}mm;">`
+    )).join("");
     const visualRows = month.weeks.reduce((sum, week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
       const eventCount = (eventsBySlot.get(week.id) ?? week.events).length;
@@ -216,37 +303,43 @@ function buildHancomCopy(
       const events = eventsBySlot.get(week.id) ?? week.events;
       const hasContent = !payloadIsEmpty(payload);
       const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
+      const rowHeights = weekRowHeights(week, events.length, hasContent);
       const monthCell = monthCellWritten
         ? ""
-        : `<td rowspan="${visualRows}" style="${compact}">${escapeHtml(month.month)}</td>`;
+        : `<td rowspan="${visualRows}" style="${centered}font-size:9pt;">${escapeHtml(month.month)}</td>`;
       monthCellWritten = true;
-      const weekCell = `<td rowspan="${weekRowCount}" style="${compact}">${htmlText(week.week)}</td>`;
-      const contentCells = `<td style="${body}">${htmlText(payload.unit)}</td>` +
-        `<td style="${body}">${htmlText(payload.achievement)}</td>` +
-        `<td style="${body}">${htmlText(payload.teaching)}</td>` +
-        `<td style="${body}">${htmlText(payload.evaluation)}</td>`;
+      const weekCell = `<td rowspan="${weekRowCount}" style="${centered}">${weekHtml(week.week)}</td>`;
+      const contentCells = `<td style="${centered}">${htmlText(payload.unit)}</td>` +
+        `<td style="${achievement}">${htmlText(payload.achievement)}</td>` +
+        `<td style="${centered}">${htmlText(payload.teaching)}</td>` +
+        `<td style="${centered}">${htmlText(payload.evaluation)}</td>`;
       const eventRows = events.map((eventText, index) => (
-        `<tr>${index === 0 ? monthCell + weekCell : ""}` +
+        `<tr style="height:${rowHeights[index]}mm;">${index === 0 ? monthCell + weekCell : ""}` +
         `<td colspan="4" style="${event}">${htmlText(eventText)}</td></tr>`
       )).join("");
-      if (events.length && hasContent) return `${eventRows}<tr>${contentCells}</tr>`;
+      if (events.length && hasContent) {
+        return `${eventRows}<tr style="height:${rowHeights[rowHeights.length - 1]}mm;">${contentCells}</tr>`;
+      }
       if (events.length) return eventRows;
-      return `<tr>${monthCell}${weekCell}${contentCells}</tr>`;
+      return `<tr style="height:${rowHeights[0]}mm;">${monthCell}${weekCell}${contentCells}</tr>`;
     }).join("");
 
-    return `<p style="font-family:'Batang';font-size:12pt;font-weight:700;margin:16px 0 6px;">■ ${escapeHtml(month.month)}월</p>` +
-      `<table style="width:100%;border-collapse:collapse;table-layout:fixed;border:1.5px solid #171717;">` +
-      `<thead><tr><th rowspan="2" style="${header}width:7%;">월</th><th rowspan="2" style="${header}width:10%;">주</th>` +
-      `<th rowspan="2" style="${header}width:15%;">단원명<br>(영역명)</th><th rowspan="2" style="${header}width:32%;">교육과정 성취기준</th>` +
+    const monthHeading = scope === "all"
+      ? `<p style="font-family:'HY헤드라인M','맑은 고딕',sans-serif;font-size:12pt;line-height:160%;margin:5.6mm 0 1.5mm 0;">■ ${escapeHtml(month.month)}월</p>`
+      : "";
+    return monthHeading +
+      `<table border="1" cellspacing="0" cellpadding="0" width="${tableWidthPx}" style="width:${layout.tableWidthMm}mm;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin:0;border:0.12mm solid #000;mso-table-layout-alt:fixed;">` +
+      `<colgroup>${columns}</colgroup>` +
+      `<thead><tr style="height:${millimeters(1466)}mm;"><th rowspan="2" style="${header}">월</th><th rowspan="2" style="${header}">주</th>` +
+      `<th rowspan="2" style="${header}">단원명<br>(영역명)</th><th rowspan="2" style="${header}">교육과정 성취기준</th>` +
       `<th colspan="2" style="${header}">탐구-실행-성찰과정</th></tr>` +
-      `<tr><th style="${header}width:18%;">수업방법</th><th style="${header}width:18%;">평가방법</th></tr></thead>` +
+      `<tr style="height:${millimeters(2638)}mm;"><th style="${header}">수업방법</th><th style="${header}">평가방법</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
-  const html = `<div><p style="text-align:center;font-family:'Batang';font-size:16pt;font-weight:700;">` +
-    `(${escapeHtml(subject.name)}) 교수학습 및 평가 운영 계획</p>${htmlMonths}</div>`;
+  const html = `<meta charset="utf-8"><!--StartFragment--><div style="margin:0;padding:0;">${htmlMonths}</div><!--EndFragment-->`;
   const plain = months.flatMap((month) => [
-    `■ ${month.month}월`,
+    ...(scope === "all" ? [`■ ${month.month}월`] : []),
     "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t평가방법",
     ...month.weeks.flatMap((week) => {
       const payload = payloadBySlot.get(week.id) ?? week.payload;
@@ -261,6 +354,36 @@ function buildHancomCopy(
   ]).join("\n");
 
   return { html, plain };
+}
+
+function copyRichHtmlWithSelection(html: string) {
+  const container = document.createElement("div");
+  container.contentEditable = "true";
+  container.setAttribute("aria-hidden", "true");
+  container.style.position = "fixed";
+  container.style.left = "-10000px";
+  container.style.top = "0";
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  const selection = window.getSelection();
+  const savedRanges = selection
+    ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index).cloneRange())
+    : [];
+  const range = document.createRange();
+  range.selectNodeContents(container);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } finally {
+    selection?.removeAllRanges();
+    savedRanges.forEach((savedRange) => selection?.addRange(savedRange));
+    container.remove();
+  }
+  return copied;
 }
 
 function payloadIsEmpty(payload: WeekPayload) {
@@ -442,25 +565,34 @@ export function PlanViewer() {
 
   const copyPlanForHancom = async (
     targetMonths: NormalizedMonth[],
+    scope: HancomCopyScope,
     successMessage: string,
     textFallbackMessage: string,
   ) => {
-    const content = buildHancomCopy(subject, targetMonths, payloadBySlot, eventsBySlot);
+    const content = buildHancomCopy(subject, targetMonths, payloadBySlot, eventsBySlot, scope);
     try {
-      if (navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
+      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
         await navigator.clipboard.write([new ClipboardItem({
           "text/html": new Blob([content.html], { type: "text/html" }),
           "text/plain": new Blob([content.plain], { type: "text/plain" }),
         })]);
         setCopyStatus(successMessage);
+      } else if (copyRichHtmlWithSelection(content.html)) {
+        setCopyStatus(successMessage);
       } else {
+        if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
         await navigator.clipboard.writeText(content.plain);
         setCopyStatus(textFallbackMessage);
       }
     } catch {
       try {
-        await navigator.clipboard.writeText(content.plain);
-        setCopyStatus(textFallbackMessage);
+        if (copyRichHtmlWithSelection(content.html)) {
+          setCopyStatus(successMessage);
+        } else {
+          if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+          await navigator.clipboard.writeText(content.plain);
+          setCopyStatus(textFallbackMessage);
+        }
       } catch {
         setCopyStatus("복사 권한을 허용한 뒤 다시 시도해 주세요.");
       }
@@ -469,12 +601,14 @@ export function PlanViewer() {
 
   const copyForHancom = () => copyPlanForHancom(
     months,
+    "all",
     "현재 과목의 전체 월 표를 한글용 형식으로 복사했습니다.",
     "전체 월 표를 셀 붙여넣기용 텍스트로 복사했습니다.",
   );
 
   const copyMonthForHancom = (month: NormalizedMonth) => copyPlanForHancom(
     [month],
+    "month",
     `${month.month}월 표를 한글용 형식으로 복사했습니다.`,
     `${month.month}월 표를 셀 붙여넣기용 텍스트로 복사했습니다.`,
   );
@@ -552,7 +686,7 @@ export function PlanViewer() {
         <aside className={styles.editGuide}>
           <strong>주차 내용 순서 변경</strong>
           <p>주차·날짜는 그대로 유지됩니다. 주차 칸의 <b>내용 이동</b>은 수업 내용 묶음을, 회색 병합 행의 <b>행사 이동</b>은 대체공휴일 같은 행사 행 하나를 옮깁니다. 행사 행의 <b>전체</b>는 해당 주의 수업 내용과 행사를 함께 빈 다음 주로 옮깁니다. 내용이 없는 주는 행사 1건이 전체 영역을 차지하고, 행사 2건 이상이면 행사별 행으로 자동 분할됩니다.</p>
-          <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를, 전 월을 복사할 때는 <b>한글용 전체 표 복사</b>를 누르세요.</p>
+          <p>필요한 월만 붙여넣을 때는 월 제목 오른쪽의 <b>월 표 복사</b>를 누르세요. 월별 복사는 제목 없이 표만 담기므로, 원본 한글 문서의 해당 월 표 전체를 선택한 뒤 붙여넣어 대체할 수 있습니다. 전 월은 <b>한글용 전체 표 복사</b>를 누르세요.</p>
         </aside>
 
         {months.map((month) => {
