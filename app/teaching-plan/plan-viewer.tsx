@@ -10,7 +10,14 @@ import {
   saveEditedHwpx,
 } from "./hwpx-client";
 import type { PreparedHwpx } from "./hwpx-client";
-import { fieldKeys, normalizeSubject, originalSixColumnLayout, payloadIsEmpty } from "./plan-model";
+import {
+  fieldKeys,
+  normalizeSubject,
+  normalizedLabel,
+  originalEightColumnLayout,
+  originalSixColumnLayout,
+  payloadIsEmpty,
+} from "./plan-model";
 import type {
   NormalizedMonth,
   NormalizedWeek,
@@ -30,6 +37,10 @@ type DraggedItem = {
 };
 
 type HancomCopyScope = "all" | "month";
+type HancomCopyHiddenFieldKey = "activity" | "evaluation";
+type HancomCopyPayload = WeekPayload & Record<HancomCopyHiddenFieldKey, string>;
+type HancomCopyFieldKey = keyof HancomCopyPayload;
+type ColumnRange = { start: number; end: number };
 
 const initialPlanData = rawPlanData as unknown as PlanData;
 const payloadStorageKey = "teaching-plan-week-order-v1";
@@ -77,6 +88,93 @@ function hancomTableLayout(subject: PlanSubject, month: NormalizedMonth) {
   };
 }
 
+function hancomCopyTableLayout(subject: PlanSubject, month: NormalizedMonth) {
+  const sourceMonth = subject.months.find((item) => item.month === month.month);
+  const sourceTable = sourceMonth?.tables.find((table) => (
+    table.cells.some((cell) => cell.header && cell.text.includes("단원명"))
+  ));
+  const layout = originalEightColumnLayout(sourceTable);
+
+  return {
+    tableWidthMm: millimeters(layout.total),
+    columnWidthsMm: layout.widths.map(millimeters),
+    headerRowHeightsMm: layout.headerHeights.map(millimeters),
+  };
+}
+
+function sourcePlanTable(subject: PlanSubject, sourceIndex: number | undefined, month?: string) {
+  const tables = subject.months.flatMap((sourceMonth) => (
+    sourceMonth.tables.map((table) => ({ month: sourceMonth.month, table }))
+  ));
+  if (sourceIndex !== undefined) {
+    const indexedTable = tables.find((item) => item.table.sourceIndex === sourceIndex)?.table;
+    if (indexedTable) return indexedTable;
+  }
+  return tables.find((item) => item.month === month && item.table.cells.some((cell) => (
+    cell.header && cell.text.includes("단원명")
+  )))?.table;
+}
+
+function sourceHeaderRange(table: PlanTable, predicate: (label: string) => boolean): ColumnRange | undefined {
+  const header = table.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)));
+  if (!header) return undefined;
+  return { start: header.col, end: header.col + header.colspan };
+}
+
+function sourceFieldRanges(table: PlanTable): Partial<Record<HancomCopyFieldKey, ColumnRange>> {
+  return {
+    unit: sourceHeaderRange(table, (label) => label.includes("단원명")),
+    achievement: sourceHeaderRange(table, (label) => label.includes("교육과정성취기준")),
+    activity: sourceHeaderRange(table, (label) => label.includes("탐구과정")),
+    teaching: sourceHeaderRange(table, (label) => label === "수업방법"),
+    evaluation: sourceHeaderRange(table, (label) => label === "평가방법"),
+    focus: sourceHeaderRange(table, (label) => label.includes("수업평가연계의주안점")),
+  };
+}
+
+function overlapsColumnRange(cell: PlanTable["cells"][number], range: ColumnRange | undefined) {
+  return Boolean(range && cell.col < range.end && cell.col + cell.colspan > range.start);
+}
+
+function sourceHiddenFieldValue(subject: PlanSubject, sourceWeek: NormalizedWeek, field: HancomCopyHiddenFieldKey) {
+  const table = sourcePlanTable(subject, sourceWeek.sourceTableIndex, sourceWeek.month);
+  if (!table) return "";
+  const ranges = sourceFieldRanges(table);
+  const fieldRange = ranges[field];
+  const weekRange = sourceHeaderRange(table, (label) => label === "주");
+  const indexedWeekCell = sourceWeek.sourceCellIndexes.week === undefined
+    ? undefined
+    : table.cells.find((cell) => cell.sourceIndex === sourceWeek.sourceCellIndexes.week);
+  const weekCell = indexedWeekCell ??
+    table.cells.find((cell) => (
+      !cell.header &&
+      overlapsColumnRange(cell, weekRange) &&
+      cell.text.trim() === sourceWeek.week.trim()
+    ));
+  if (!fieldRange || !weekCell) return "";
+  const rowStart = weekCell.row;
+  const rowEnd = weekCell.row + weekCell.rowspan;
+  const copyFieldKeys: HancomCopyFieldKey[] = ["unit", "achievement", "activity", "teaching", "evaluation", "focus"];
+  const values = table.cells
+    .filter((cell) => {
+      if (cell.header || !cell.text.trim()) return false;
+      if (cell.row >= rowEnd || cell.row + cell.rowspan <= rowStart) return false;
+      const matchedFields = copyFieldKeys.filter((key) => overlapsColumnRange(cell, ranges[key]));
+      return matchedFields.length === 1 && matchedFields[0] === field;
+    })
+    .sort((a, b) => a.row - b.row || a.col - b.col)
+    .map((cell) => cell.text.trim());
+  return Array.from(new Set(values)).join("\n");
+}
+
+function hancomCopyPayload(subject: PlanSubject, sourceWeek: NormalizedWeek, payload: WeekPayload): HancomCopyPayload {
+  return {
+    ...payload,
+    activity: sourceHiddenFieldValue(subject, sourceWeek, "activity"),
+    evaluation: sourceHiddenFieldValue(subject, sourceWeek, "evaluation"),
+  };
+}
+
 function weekHtml(value: string) {
   const [weekNumber = "", ...dates] = value.split("\n");
   return `<span lang="ko" style="${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;">${escapeHtml(weekNumber)}</span>` +
@@ -97,7 +195,7 @@ function weekRowHeights(week: NormalizedWeek, eventCount: number, hasContent: bo
 function buildHancomCopy(
   subject: PlanSubject,
   months: NormalizedMonth[],
-  payloadBySlot: Map<string, WeekPayload>,
+  payloadBySlot: Map<string, HancomCopyPayload>,
   eventsBySlot: Map<string, string[]>,
   scope: HancomCopyScope,
 ) {
@@ -107,28 +205,35 @@ function buildHancomCopy(
   const body = `${border}${font}`;
   const centered = `${body}text-align:center;`;
   const achievement = `${body}text-align:justify;text-justify:inter-character;`;
+  const focus = `${body}text-align:left;`;
   const event = `${centered}height:auto;`;
   const htmlMonths = months.map((month) => {
-    const layout = hancomTableLayout(subject, month);
+    const layout = hancomCopyTableLayout(subject, month);
+    const columnWidth = (start: number, span = 1) => (
+      Math.round(layout.columnWidthsMm.slice(start, start + span).reduce((sum, width) => sum + width, 0) * 100) / 100
+    );
+    const widthStyle = (start: number, span = 1) => `width:${columnWidth(start, span)}mm;mso-width-source:userset;`;
     const tableWidthPx = Math.round((layout.tableWidthMm / 25.4) * 96);
     const columns = layout.columnWidthsMm.map((width) => (
-      `<col width="${Math.round((width / 25.4) * 96)}" style="width:${width}mm;">`
+      `<col width="${Math.round((width / 25.4) * 96)}" style="width:${width}mm;mso-width-source:userset;">`
     )).join("");
     const rows = month.weeks.map((week) => {
-      const payload = payloadBySlot.get(week.id) ?? week.payload;
+      const payload = payloadBySlot.get(week.id) ?? hancomCopyPayload(subject, week, week.payload);
       const events = eventsBySlot.get(week.id) ?? week.events;
       const hasContent = !payloadIsEmpty(payload);
       const weekRowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
       const rowHeights = weekRowHeights(week, events.length, hasContent);
-      const monthCell = `<td rowspan="${weekRowCount}" lang="ko" style="${centered}font-size:9pt;">${htmlText(month.month, `${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;`)}</td>`;
-      const weekCell = `<td rowspan="${weekRowCount}" style="${centered}">${weekHtml(week.week)}</td>`;
-      const contentCells = `<td lang="ko" style="${centered}">${htmlText(payload.unit)}</td>` +
-        `<td style="${achievement}">${htmlText(payload.achievement)}</td>` +
-        `<td style="${centered}">${htmlText(payload.teaching)}</td>` +
-        `<td style="${centered}">${htmlText(payload.focus)}</td>`;
+      const monthCell = `<td rowspan="${weekRowCount}" lang="ko" style="${centered}font-size:9pt;${widthStyle(0)}">${htmlText(month.month, `${hancomBodyFont}font-size:9pt;letter-spacing:-0.9pt;`)}</td>`;
+      const weekCell = `<td rowspan="${weekRowCount}" style="${centered}${widthStyle(1)}">${weekHtml(week.week)}</td>`;
+      const contentCells = `<td lang="ko" style="${centered}${widthStyle(2)}">${htmlText(payload.unit)}</td>` +
+        `<td style="${achievement}${widthStyle(3)}">${htmlText(payload.achievement)}</td>` +
+        `<td style="${centered}${widthStyle(4)}">${htmlText(payload.activity)}</td>` +
+        `<td style="${centered}${widthStyle(5)}">${htmlText(payload.teaching)}</td>` +
+        `<td style="${centered}${widthStyle(6)}">${htmlText(payload.evaluation)}</td>` +
+        `<td style="${focus}${widthStyle(7)}">${htmlText(payload.focus)}</td>`;
       const eventRows = events.map((eventText, index) => (
         `<tr style="height:${rowHeights[index]}mm;">${index === 0 ? monthCell + weekCell : ""}` +
-        `<td colspan="4" lang="ko" style="${event}">${htmlText(eventText)}</td></tr>`
+        `<td colspan="6" lang="ko" style="${event}${widthStyle(2, 6)}">${htmlText(eventText)}</td></tr>`
       )).join("");
       if (events.length && hasContent) {
         return `${eventRows}<tr style="height:${rowHeights[rowHeights.length - 1]}mm;">${contentCells}</tr>`;
@@ -143,25 +248,25 @@ function buildHancomCopy(
     return monthHeading +
       `<table border="1" cellspacing="0" cellpadding="0" width="${tableWidthPx}" style="width:${layout.tableWidthMm}mm;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin:0;border:0.12mm solid #000;mso-table-layout-alt:fixed;">` +
       `<colgroup>${columns}</colgroup>` +
-      `<thead><tr style="height:${layout.headerRowHeightsMm[0]}mm;"><th rowspan="2" lang="ko" style="${header}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("주")}</th>` +
-      `<th rowspan="2" lang="ko" style="${header}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}">${headerText("교육과정 성취기준")}</th>` +
-      `<th colspan="2" lang="ko" style="${header}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
-      `<tr style="height:${layout.headerRowHeightsMm[1]}mm;"><th lang="ko" style="${header}">${headerText("수업방법")}</th><th lang="ko" style="${header}">${headerText("수업·평가 연계의 주안점")}</th></tr></thead>` +
+      `<thead><tr style="height:${layout.headerRowHeightsMm[0]}mm;"><th rowspan="2" lang="ko" style="${header}${widthStyle(0)}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}${widthStyle(1)}">${headerText("주")}</th>` +
+      `<th rowspan="2" lang="ko" style="${header}${widthStyle(2)}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}${widthStyle(3)}">${headerText("교육과정 성취기준")}</th>` +
+      `<th colspan="4" lang="ko" style="${header}${widthStyle(4, 4)}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
+      `<tr style="height:${layout.headerRowHeightsMm[1]}mm;"><th lang="ko" style="${header}${widthStyle(4)}">${headerText("탐구과정\n(기능)")}</th><th lang="ko" style="${header}${widthStyle(5)}">${headerText("수업방법")}</th><th lang="ko" style="${header}${widthStyle(6)}">${headerText("평가방법")}</th><th lang="ko" style="${header}${widthStyle(7)}">${headerText("수업‧평가 연계의 주안점")}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
   const html = `<!DOCTYPE html><html lang="ko" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@font-face{font-family:'맑은 고딕';src:local('맑은 고딕'),local('Malgun Gothic')}p{margin:0}table,td,th,span{mso-fareast-font-family:'맑은 고딕';}</style></head><body><!--StartFragment--><div lang="ko" style="margin:0;padding:0;${hancomBodyFont}">${htmlMonths}</div><!--EndFragment--></body></html>`;
   const plain = months.flatMap((month) => [
     ...(scope === "all" ? [`■ ${month.month}월`] : []),
-    "월\t주\t단원명(영역명)\t교육과정 성취기준\t수업방법\t수업·평가 연계의 주안점",
+    "월\t주\t단원명(영역명)\t교육과정 성취기준\t탐구과정(기능)\t수업방법\t평가방법\t수업‧평가 연계의 주안점",
     ...month.weeks.flatMap((week) => {
-      const payload = payloadBySlot.get(week.id) ?? week.payload;
+      const payload = payloadBySlot.get(week.id) ?? hancomCopyPayload(subject, week, week.payload);
       const events = eventsBySlot.get(week.id) ?? week.events;
-      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.focus]
+      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.activity, payload.teaching, payload.evaluation, payload.focus]
         .map((value) => value.replace(/\n/g, " / "))
         .join("\t");
       if (!events.length) return [contentRow];
-      const eventRows = events.map((eventText) => [month.month, week.week, eventText, "", "", ""].join("\t"));
+      const eventRows = events.map((eventText) => [month.month, week.week, eventText, "", "", "", "", ""].join("\t"));
       return payloadIsEmpty(payload) ? eventRows : [...eventRows, contentRow];
     }),
   ]).join("\n");
@@ -232,6 +337,12 @@ export function PlanViewer() {
     slot.id,
     originalPayloads.get(activeOrder[index]) ?? slot.payload,
   ])), [activeOrder, originalPayloads, slots]);
+  const sourceSlotsById = useMemo(() => new Map(slots.map((slot) => [slot.id, slot])), [slots]);
+  const copyPayloadBySlot = useMemo(() => new Map(slots.map((slot, index) => {
+    const sourceSlot = sourceSlotsById.get(activeOrder[index]) ?? slot;
+    const payload = payloadBySlot.get(slot.id) ?? sourceSlot.payload;
+    return [slot.id, hancomCopyPayload(subject, sourceSlot, payload)];
+  })), [activeOrder, payloadBySlot, slots, sourceSlotsById, subject]);
   const storedEventLayout = eventLayouts[subject.id];
   const eventsBySlot = useMemo(() => new Map(slots.map((slot) => [
     slot.id,
@@ -456,7 +567,7 @@ export function PlanViewer() {
     successMessage: string,
     textFallbackMessage: string,
   ) => {
-    const content = buildHancomCopy(subject, targetMonths, payloadBySlot, eventsBySlot, scope);
+    const content = buildHancomCopy(subject, targetMonths, copyPayloadBySlot, eventsBySlot, scope);
     try {
       if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
         await navigator.clipboard.write([new ClipboardItem({

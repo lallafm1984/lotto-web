@@ -12,6 +12,7 @@ export const fieldKeys: FieldKey[] = ["unit", "achievement", "teaching", "focus"
 const originalColumnWidthFallback = [2264, 3138, 4415, 9375] as const;
 const originalProcessGroupWidthFallback = 28644;
 const originalVisibleProcessWidthsFallback = [4848, 12685] as const;
+const originalEightColumnWidthFallback = [2264, 3138, 4415, 9375, 6263, 4848, 4848, 12685] as const;
 const originalHeaderHeightFallback = 4104;
 const originalGroupHeaderHeightFallback = 1466;
 
@@ -48,6 +49,34 @@ export function originalSixColumnLayout(table?: PlanTable) {
   return {
     widths,
     total: fixedWidths.reduce((sum, width) => sum + width, 0) + processGroupWidth,
+    headerHeights: [groupHeaderHeight, Math.max(1, headerHeight - groupHeaderHeight)],
+  };
+}
+
+export function originalEightColumnLayout(table?: PlanTable) {
+  const header = (predicate: (label: string) => boolean) => (
+    table?.cells.find((cell) => cell.header && predicate(normalizedLabel(cell.text)))
+  );
+  const headerWidth = (predicate: (label: string) => boolean, fallback: number) => (
+    header(predicate)?.width || fallback
+  );
+  const widths = [
+    headerWidth((label) => label === "월", originalEightColumnWidthFallback[0]),
+    headerWidth((label) => label === "주", originalEightColumnWidthFallback[1]),
+    headerWidth((label) => label.includes("단원명"), originalEightColumnWidthFallback[2]),
+    headerWidth((label) => label.includes("교육과정성취기준"), originalEightColumnWidthFallback[3]),
+    headerWidth((label) => label.includes("탐구과정"), originalEightColumnWidthFallback[4]),
+    headerWidth((label) => label === "수업방법", originalEightColumnWidthFallback[5]),
+    headerWidth((label) => label === "평가방법", originalEightColumnWidthFallback[6]),
+    headerWidth((label) => label.includes("수업평가연계의주안점"), originalEightColumnWidthFallback[7]),
+  ];
+  const headerHeight = header((label) => label === "월")?.height || originalHeaderHeightFallback;
+  const groupHeaderHeight = header((label) => label.includes("탐구-실행-성찰과정"))?.height
+    || originalGroupHeaderHeightFallback;
+
+  return {
+    widths,
+    total: widths.reduce((sum, width) => sum + width, 0),
     headerHeights: [groupHeaderHeight, Math.max(1, headerHeight - groupHeaderHeight)],
   };
 }
