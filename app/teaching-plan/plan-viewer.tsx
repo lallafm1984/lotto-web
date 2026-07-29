@@ -57,6 +57,7 @@ function escapeHtml(value: string) {
 
 const hancomBodyFont = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;mso-fareast-font-family:'맑은 고딕';font-size:8pt;font-weight:400;font-stretch:95%;letter-spacing:-0.8pt;line-height:130%;color:#000;";
 const hancomHeaderFont = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;mso-fareast-font-family:'맑은 고딕';font-size:9pt;font-weight:700;font-stretch:95%;letter-spacing:-0.9pt;line-height:130%;color:#000;";
+const hancomMajorHeaderFont = "font-family:'맑은 고딕','Malgun Gothic',sans-serif;mso-fareast-font-family:'맑은 고딕';font-size:10pt;font-weight:700;font-stretch:95%;letter-spacing:-1pt;line-height:130%;color:#000;";
 
 function htmlText(value: string, style = hancomBodyFont) {
   const lines = value.split("\n");
@@ -67,6 +68,10 @@ function htmlText(value: string, style = hancomBodyFont) {
 
 function headerText(value: string) {
   return htmlText(value, hancomHeaderFont);
+}
+
+function majorHeaderText(value: string) {
+  return htmlText(value, hancomMajorHeaderFont);
 }
 
 const hwpUnitsPerMillimeter = 7200 / 25.4;
@@ -202,6 +207,7 @@ function buildHancomCopy(
   const font = hancomBodyFont;
   const border = "border:0.12mm solid #000;padding:0.5mm 1.8mm;mso-padding-alt:0.5mm 1.8mm 0.5mm 1.8mm;vertical-align:middle;white-space:normal;word-break:keep-all;overflow-wrap:break-word;";
   const header = `${border}${font}background-color:#fff;font-size:9pt;font-weight:700;text-align:center;`;
+  const majorHeader = `${border}${hancomMajorHeaderFont}background-color:#fff;text-align:center;`;
   const body = `${border}${font}`;
   const centered = `${body}text-align:center;`;
   const achievement = `${body}text-align:justify;text-justify:inter-character;`;
@@ -227,10 +233,8 @@ function buildHancomCopy(
       const weekCell = `<td rowspan="${weekRowCount}" style="${centered}${widthStyle(1)}">${weekHtml(week.week)}</td>`;
       const contentCells = `<td lang="ko" style="${centered}${widthStyle(2)}">${htmlText(payload.unit)}</td>` +
         `<td style="${achievement}${widthStyle(3)}">${htmlText(payload.achievement)}</td>` +
-        `<td style="${centered}${widthStyle(4)}">${htmlText(payload.activity)}</td>` +
-        `<td style="${centered}${widthStyle(5)}">${htmlText(payload.teaching)}</td>` +
-        `<td style="${centered}${widthStyle(6)}">${htmlText(payload.evaluation)}</td>` +
-        `<td style="${focus}${widthStyle(7)}">${htmlText(payload.focus)}</td>`;
+        `<td colspan="2" style="${centered}${widthStyle(4, 2)}">${htmlText(payload.teaching)}</td>` +
+        `<td colspan="2" style="${focus}${widthStyle(6, 2)}">${htmlText(payload.focus)}</td>`;
       const eventRows = events.map((eventText, index) => (
         `<tr style="height:${rowHeights[index]}mm;">${index === 0 ? monthCell + weekCell : ""}` +
         `<td colspan="6" lang="ko" style="${event}${widthStyle(2, 6)}">${htmlText(eventText)}</td></tr>`
@@ -248,25 +252,25 @@ function buildHancomCopy(
     return monthHeading +
       `<table border="1" cellspacing="0" cellpadding="0" width="${tableWidthPx}" style="width:${layout.tableWidthMm}mm;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin:0;border:0.12mm solid #000;mso-table-layout-alt:fixed;">` +
       `<colgroup>${columns}</colgroup>` +
-      `<thead><tr style="height:${layout.headerRowHeightsMm[0]}mm;"><th rowspan="2" lang="ko" style="${header}${widthStyle(0)}">${headerText("월")}</th><th rowspan="2" lang="ko" style="${header}${widthStyle(1)}">${headerText("주")}</th>` +
-      `<th rowspan="2" lang="ko" style="${header}${widthStyle(2)}">${headerText("단원명\n(영역명)")}</th><th rowspan="2" lang="ko" style="${header}${widthStyle(3)}">${headerText("교육과정 성취기준")}</th>` +
-      `<th colspan="4" lang="ko" style="${header}${widthStyle(4, 4)}">${headerText("탐구-실행-성찰과정")}</th></tr>` +
-      `<tr style="height:${layout.headerRowHeightsMm[1]}mm;"><th lang="ko" style="${header}${widthStyle(4)}">${headerText("탐구과정\n(기능)")}</th><th lang="ko" style="${header}${widthStyle(5)}">${headerText("수업방법")}</th><th lang="ko" style="${header}${widthStyle(6)}">${headerText("평가방법")}</th><th lang="ko" style="${header}${widthStyle(7)}">${headerText("수업‧평가 연계의 주안점")}</th></tr></thead>` +
+      `<thead><tr style="height:${layout.headerRowHeightsMm[0]}mm;"><th rowspan="2" lang="ko" style="${majorHeader}${widthStyle(0)}">${majorHeaderText("월")}</th><th rowspan="2" lang="ko" style="${majorHeader}${widthStyle(1)}">${majorHeaderText("주")}</th>` +
+      `<th rowspan="2" lang="ko" style="${majorHeader}${widthStyle(2)}">${majorHeaderText("단원명")}</th><th rowspan="2" lang="ko" style="${majorHeader}${widthStyle(3)}">${majorHeaderText("교육과정 성취기준")}</th>` +
+      `<th colspan="4" lang="ko" style="${majorHeader}${widthStyle(4, 4)}">${majorHeaderText("탐구-실행-성찰과정")}</th></tr>` +
+      `<tr style="height:${layout.headerRowHeightsMm[1]}mm;"><th colspan="2" lang="ko" style="${header}${widthStyle(4, 2)}">${headerText("수업방법")}</th><th colspan="2" lang="ko" style="${header}${widthStyle(6, 2)}">${headerText("수업·평가 연계의 주안점")}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>`;
   }).join("");
 
   const html = `<!DOCTYPE html><html lang="ko" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@font-face{font-family:'맑은 고딕';src:local('맑은 고딕'),local('Malgun Gothic')}p{margin:0}table,td,th,span{mso-fareast-font-family:'맑은 고딕';}</style></head><body><!--StartFragment--><div lang="ko" style="margin:0;padding:0;${hancomBodyFont}">${htmlMonths}</div><!--EndFragment--></body></html>`;
   const plain = months.flatMap((month) => [
     ...(scope === "all" ? [`■ ${month.month}월`] : []),
-    "월\t주\t단원명(영역명)\t교육과정 성취기준\t탐구과정(기능)\t수업방법\t평가방법\t수업‧평가 연계의 주안점",
+    "월\t주\t단원명\t교육과정 성취기준\t수업방법\t수업·평가 연계의 주안점",
     ...month.weeks.flatMap((week) => {
       const payload = payloadBySlot.get(week.id) ?? hancomCopyPayload(subject, week, week.payload);
       const events = eventsBySlot.get(week.id) ?? week.events;
-      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.activity, payload.teaching, payload.evaluation, payload.focus]
+      const contentRow = [month.month, week.week, payload.unit, payload.achievement, payload.teaching, payload.focus]
         .map((value) => value.replace(/\n/g, " / "))
         .join("\t");
       if (!events.length) return [contentRow];
-      const eventRows = events.map((eventText) => [month.month, week.week, eventText, "", "", "", "", ""].join("\t"));
+      const eventRows = events.map((eventText) => [month.month, week.week, eventText, "", "", ""].join("\t"));
       return payloadIsEmpty(payload) ? eventRows : [...eventRows, contentRow];
     }),
   ]).join("\n");
