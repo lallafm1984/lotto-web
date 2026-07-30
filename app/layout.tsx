@@ -5,8 +5,8 @@ import { siteName, siteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: `${siteName}｜数字くじ確率体験`, template: `%s｜${siteName}` },
-  description: "6/43、1等確率は6,096,454分の1。選んで、回して、記録する数字抽せんシミュレーション。",
+  title: { default: `${siteName}｜ロト風数字くじシミュレーション`, template: `%s｜${siteName}` },
+  description: "1〜43から6つを選び、約610万分の1を体験するロト風の数字くじシミュレーション。現金・景品は受け取れません。",
   openGraph: { type: "website", locale: "ja_JP", siteName },
   icons: { icon: "/marketing/app-icon.png", apple: "/marketing/app-icon.png" },
 };

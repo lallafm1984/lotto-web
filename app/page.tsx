@@ -6,9 +6,9 @@ import { SiteHeader } from "@/components/site-header";
 import { playStoreUrl, publicDocuments } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "約610万分の1を体験する数字くじゲーム",
-  description: "18歳以上対象。1〜43から6つを選び、1等確率1/6,096,454の6/43方式に挑戦する数字抽せんシミュレーション。現金・景品は受け取れません。",
-  alternates: { canonical: "/" },
+  title: "ロト風・数字くじシミュレーションゲーム",
+  description: "18歳以上対象。1〜43から6つを選び、約610万分の1を体験するロト風の数字くじシミュレーション。現金・景品は受け取れません。",
+  alternates: { canonical: "/", languages: { "ja-JP": "/" } },
 };
 
 const playSteps = [
@@ -33,7 +33,7 @@ export default function HomePage() {
         <section className="relative border-b border-[#d8b563]/45 bg-[#fff7e3] py-14 sm:py-20 lg:py-24">
           <div className="mx-auto grid w-full min-w-0 max-w-7xl grid-cols-[minmax(0,1fr)] gap-x-14 gap-y-8 px-4 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
             <div className="relative z-10 min-w-0 lg:col-start-1 lg:row-start-1">
-              <p className="eyebrow">6/43 確率体験</p>
+              <p className="eyebrow">ロト風 6/43 確率体験</p>
               <h1 className="mt-5 text-5xl font-black leading-[1.03] tracking-[-.075em] text-[#281407] sm:text-6xl lg:text-[4.25rem]">
                 <span className="sm:whitespace-nowrap">610万分の1を、</span><br /><span className="text-[#b71912] sm:whitespace-nowrap">体験しよう。</span>
               </h1>
@@ -45,7 +45,7 @@ export default function HomePage() {
 
             <div className="relative z-10 min-w-0 lg:col-start-1 lg:row-start-2">
               <p className="mt-6 max-w-xl text-pretty text-lg font-medium leading-8 text-[#644d36] sm:text-xl">
-                1〜43から6つを選び、抽せんして、記録する。<br />あなたは何回目で、<br className="sm:hidden" />ゲーム内1等に出会えるでしょうか。
+                ロトのように1〜43から6つを選び、抽せんして、記録する。<br />あなたは何回目で、<br className="sm:hidden" />ゲーム内1等に出会えるでしょうか。
               </p>
               <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap">
                 <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" className="button-primary w-full sm:w-auto" aria-label="Google Playでくじぐらしをインストール">Google Playでインストール</a>
@@ -140,7 +140,7 @@ export default function HomePage() {
             <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
               <div>
                 <p className="eyebrow">安心して遊ぶために</p>
-                <h2 className="section-title">ゲーム内だけの<br />運だめし。</h2>
+                <h2 className="section-title">ゲーム内だけの<br />ロト風・数字くじ。</h2>
                 <div className="mt-6 max-w-2xl rounded-2xl border-2 border-[#c6953c] bg-[#fff8e8] p-6 text-[#4d351f] shadow-[0_14px_35px_rgba(69,44,14,.08)]" role="note" aria-label="年齢対象とゲームの性質に関する重要なご案内">
                   <p className="font-black leading-7">※本ゲームは18歳以上の方を対象とした、ゲーム内のみの数字抽せんシミュレーションです。</p>
                   <p className="mt-3 leading-7">現金を賭ける機能はなく、現金・景品など現実の価値を持つものは獲得できません。</p>
