@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { normalizeSubject, normalizedLabel, originalSixColumnLayout, payloadIsEmpty } from "./plan-model";
+import { normalizeSubject, normalizedLabel, orderedWeekRows, originalSixColumnLayout, payloadIsEmpty } from "./plan-model";
 import type {
   FieldKey,
   NormalizedWeek,
@@ -9,6 +9,7 @@ import type {
   PlanTable,
   StoredEventLayouts,
   StoredOrders,
+  StoredPayloadPositions,
   WeekPayload,
 } from "./plan-types";
 
@@ -51,6 +52,7 @@ type SaveOptions = {
   planData: PlanData;
   orders: StoredOrders;
   eventLayouts: StoredEventLayouts;
+  payloadPositions: StoredPayloadPositions;
 };
 
 function compact(value: string) {
@@ -315,6 +317,7 @@ function rewritePlanTable(
   sourceSlots: Map<string, NormalizedWeek>,
   payloadSourceByTarget: Map<string, string>,
   eventsByTarget: Map<string, string[]>,
+  payloadPositionsByTarget: Map<string, number>,
   originalTables: Map<number, Element[]>,
   eventCellsByText: Map<string, Element>,
 ) {
@@ -386,6 +389,13 @@ function rewritePlanTable(
     const hasContent = !payloadIsEmpty(payload);
     const rowCount = Math.max(1, events.length + (hasContent ? 1 : 0));
     const heights = weekRowHeightsHwp(week, events.length, hasContent);
+    const includePayload = hasContent || events.length === 0;
+    const payloadPosition = payloadPositionsByTarget.get(week.id) ?? week.payloadPosition;
+    const rowItems = orderedWeekRows(events, includePayload, payloadPosition);
+    const orderedHeights = includePayload && events.length
+      ? orderedWeekRows(heights.slice(0, events.length).map(String), true, payloadPosition)
+        .map((item) => item.kind === "payload" ? heights[heights.length - 1] : Number(item.eventText))
+      : heights;
     const monthSource = sourceCell(week.sourceTableIndex, week.sourceCellIndexes.month) ?? genericByColumn.get(0);
     const weekSource = sourceCell(week.sourceTableIndex, week.sourceCellIndexes.week) ?? genericByColumn.get(1);
     const monthCell = monthSource?.cloneNode(true) as Element | undefined;
@@ -393,37 +403,32 @@ function rewritePlanTable(
     if (monthCell) setCellGeometry(monthCell, rowIndex, 0, rowCount, 1, widths[0], week.height);
     if (weekCell) setCellGeometry(weekCell, rowIndex, 1, rowCount, 1, widths[1], week.height);
 
-    events.forEach((eventText, eventIndex) => {
-      const template = eventCellsByText.get(eventText) ?? genericByColumn.get(2);
-      if (!template) return;
-      const eventCell = template.cloneNode(true) as Element;
-      setCellText(eventCell, eventText);
-      setCellGeometry(eventCell, rowIndex + eventIndex, 2, 1, 4, widths.slice(2).reduce((sum, width) => sum + width, 0), heights[eventIndex]);
-      newRows.push(createRow(document, [
-        ...(eventIndex === 0 && monthCell ? [monthCell] : []),
-        ...(eventIndex === 0 && weekCell ? [weekCell] : []),
-        eventCell,
-      ]));
-    });
+    rowItems.forEach((item, itemIndex) => {
+      const leadingCells = [
+        ...(itemIndex === 0 && monthCell ? [monthCell] : []),
+        ...(itemIndex === 0 && weekCell ? [weekCell] : []),
+      ];
+      if (item.kind === "event") {
+        const template = eventCellsByText.get(item.eventText) ?? genericByColumn.get(2);
+        if (!template) return;
+        const eventCell = template.cloneNode(true) as Element;
+        setCellText(eventCell, item.eventText);
+        setCellGeometry(eventCell, rowIndex + itemIndex, 2, 1, 4, widths.slice(2).reduce((sum, width) => sum + width, 0), orderedHeights[itemIndex]);
+        newRows.push(createRow(document, [...leadingCells, eventCell]));
+        return;
+      }
 
-    if (hasContent || events.length === 0) {
-      const contentRowIndex = rowIndex + events.length;
-      const contentHeight = heights[heights.length - 1];
       const contentCells = (["unit", "achievement", "teaching", "focus"] as FieldKey[]).map((field) => {
         const source = sourceCell(payloadSlot.sourceTableIndex, payloadSlot.sourceCellIndexes[field]) ?? genericByColumn.get(oldFieldColumns[field]);
         if (!source) throw new Error("원본 표의 수업 셀 서식을 찾지 못했습니다.");
         const cell = source.cloneNode(true) as Element;
         if (cellText(cell) !== payload[field]) setCellText(cell, payload[field]);
         const newCol = FIELD_NEW_COLUMNS[field];
-        setCellGeometry(cell, contentRowIndex, newCol, 1, 1, widths[newCol], contentHeight);
+        setCellGeometry(cell, rowIndex + itemIndex, newCol, 1, 1, widths[newCol], orderedHeights[itemIndex]);
         return cell;
       });
-      newRows.push(createRow(document, [
-        ...(events.length === 0 && monthCell ? [monthCell] : []),
-        ...(events.length === 0 && weekCell ? [weekCell] : []),
-        ...contentCells,
-      ]));
-    }
+      newRows.push(createRow(document, [...leadingCells, ...contentCells]));
+    });
     rowIndex += rowCount;
   }
 
@@ -481,6 +486,7 @@ export function saveEditedHwpx(prepared: PreparedHwpx, options: SaveOptions) {
   const allSourceSlots = new Map<string, NormalizedWeek>();
   const payloadSourceByTarget = new Map<string, string>();
   const eventsByTarget = new Map<string, string[]>();
+  const payloadPositionsByTarget = new Map<string, number>();
   options.planData.subjects.forEach((subject) => {
     const slots = normalizeSubject(subject).flatMap((month) => month.weeks);
     subjectSlots.set(subject.id, slots);
@@ -493,6 +499,7 @@ export function saveEditedHwpx(prepared: PreparedHwpx, options: SaveOptions) {
     slots.forEach((slot, index) => {
       payloadSourceByTarget.set(slot.id, order[index]);
       eventsByTarget.set(slot.id, options.eventLayouts[subject.id]?.[slot.id] ?? slot.events);
+      payloadPositionsByTarget.set(slot.id, options.payloadPositions[subject.id]?.[slot.id] ?? slot.payloadPosition);
     });
   });
 
@@ -532,6 +539,7 @@ export function saveEditedHwpx(prepared: PreparedHwpx, options: SaveOptions) {
           allSourceSlots,
           payloadSourceByTarget,
           eventsByTarget,
+          payloadPositionsByTarget,
           originalTables,
           eventCellsByText,
         );

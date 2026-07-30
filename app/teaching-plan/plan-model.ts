@@ -16,7 +16,11 @@ const originalEightColumnWidthFallback = [2264, 3138, 4415, 9375, 6263, 4848, 48
 const originalHeaderHeightFallback = 4104;
 const originalGroupHeaderHeightFallback = 1466;
 
-type FieldRange = { start: number; end: number };
+type HorizontalRange = { start: number; end: number };
+
+export type OrderedWeekRow =
+  | { kind: "payload" }
+  | { kind: "event"; eventIndex: number; eventText: string };
 
 export function normalizedLabel(text: string) {
   return text.replace(/[\s·‧()]/g, "");
@@ -112,11 +116,23 @@ export function visibleTable(table: PlanTable): PlanTable {
   return { ...table, cols: visibleColumns.length, cells };
 }
 
-function getFieldRanges(table: PlanTable): Record<FieldKey, FieldRange> {
+function horizontalRange(table: PlanTable, target: PlanCell): HorizontalRange {
+  const cellsInRow = table.cells
+    .filter((cell) => cell.row <= target.row && cell.row + cell.rowspan > target.row)
+    .sort((a, b) => a.col - b.col);
+  let start = 0;
+  for (const cell of cellsInRow) {
+    if (cell === target) return { start, end: start + cell.width };
+    start += cell.width;
+  }
+  return { start: target.col, end: target.col + target.colspan };
+}
+
+function getHorizontalFieldRanges(table: PlanTable): Record<FieldKey, HorizontalRange> {
   const findHeader = (predicate: (label: string) => boolean) => {
     const cell = table.cells.find((item) => item.header && predicate(normalizedLabel(item.text)));
     if (!cell) throw new Error("교수학습 표의 필수 머리글을 찾을 수 없습니다.");
-    return { start: cell.col, end: cell.col + cell.colspan };
+    return horizontalRange(table, cell);
   };
 
   return {
@@ -127,8 +143,21 @@ function getFieldRanges(table: PlanTable): Record<FieldKey, FieldRange> {
   };
 }
 
-function overlaps(cell: PlanCell, range: FieldRange) {
-  return cell.col < range.end && cell.col + cell.colspan > range.start;
+function horizontallyOverlaps(cell: HorizontalRange, range: HorizontalRange) {
+  const roundingTolerance = 8;
+  return cell.start < range.end - roundingTolerance && cell.end > range.start + roundingTolerance;
+}
+
+export function orderedWeekRows(events: string[], includePayload: boolean, payloadPosition: number): OrderedWeekRow[] {
+  const eventRows: OrderedWeekRow[] = events.map((eventText, eventIndex) => ({
+    kind: "event",
+    eventIndex,
+    eventText,
+  }));
+  if (!includePayload) return eventRows;
+  const position = Math.max(0, Math.min(events.length, payloadPosition));
+  eventRows.splice(position, 0, { kind: "payload" });
+  return eventRows;
 }
 
 export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
@@ -136,8 +165,8 @@ export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
     const weeks: NormalizedMonth["weeks"] = [];
 
     month.tables.forEach((rawTable, tableIndex) => {
-      const table = visibleTable(rawTable);
-      const ranges = getFieldRanges(table);
+      const table = rawTable;
+      const ranges = getHorizontalFieldRanges(table);
       const bodyCells = table.cells.filter((cell) => !cell.header);
       const weekCells = bodyCells
         .filter((cell) => /^\s*\d+\s*\(/.test(cell.text))
@@ -149,11 +178,17 @@ export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
         const cellsInWeek = bodyCells.filter((cell) => (
           cell.row < rowEnd && cell.row + cell.rowspan > rowStart
         ));
-        const fieldOverlaps = (cell: PlanCell) => fieldKeys.filter((key) => overlaps(cell, ranges[key]));
+        const fieldOverlaps = (cell: PlanCell) => {
+          const cellRange = horizontalRange(table, cell);
+          return fieldKeys.filter((key) => horizontallyOverlaps(cellRange, ranges[key]));
+        };
         const eventCells = cellsInWeek
           .filter((cell) => fieldOverlaps(cell).length > 1 && cell.text.trim())
           .sort((a, b) => a.row - b.row || a.col - b.col);
-        const events = Array.from(new Set(eventCells.map((cell) => cell.text.trim())));
+        const uniqueEventCells = eventCells.filter((cell, index) => (
+          eventCells.findIndex((candidate) => candidate.text.trim() === cell.text.trim()) === index
+        ));
+        const events = uniqueEventCells.map((cell) => cell.text.trim());
         const uniqueFieldCells = Object.fromEntries(fieldKeys.map((key) => {
           const matched = cellsInWeek
             .filter((cell) => {
@@ -167,14 +202,21 @@ export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
           key,
           Array.from(new Set(uniqueFieldCells[key].map((cell) => cell.text.trim()))).join("\n"),
         ])) as WeekPayload;
+        const payloadRow = Math.min(
+          ...fieldKeys.flatMap((key) => uniqueFieldCells[key].map((cell) => cell.row)),
+        );
+        const payloadPosition = Number.isFinite(payloadRow)
+          ? uniqueEventCells.filter((cell) => cell.row < payloadRow).length
+          : 0;
         const monthCell = cellsInWeek.find((cell) => cell.col === 0);
 
         weeks.push({
           id: `${subject.id}:${month.month}:${tableIndex}:${weekIndex}`,
           month: month.month,
           week: weekCell.text.trim(),
-          height: weekCell.height,
+          height: Math.max(weekCell.height, monthCell?.height ?? 0),
           events,
+          payloadPosition,
           payload,
           sourceTableIndex: rawTable.sourceIndex,
           sourceCellIndexes: {
@@ -184,7 +226,7 @@ export function normalizeSubject(subject: PlanSubject): NormalizedMonth[] {
             achievement: uniqueFieldCells.achievement[0]?.sourceIndex,
             teaching: uniqueFieldCells.teaching[0]?.sourceIndex,
             focus: uniqueFieldCells.focus[0]?.sourceIndex,
-            events: eventCells.flatMap((cell) => cell.sourceIndex === undefined ? [] : [cell.sourceIndex]),
+            events: uniqueEventCells.flatMap((cell) => cell.sourceIndex === undefined ? [] : [cell.sourceIndex]),
           },
         });
       });

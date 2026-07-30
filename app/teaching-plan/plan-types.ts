@@ -47,6 +47,7 @@ export type NormalizedWeek = {
   week: string;
   height: number;
   events: string[];
+  payloadPosition: number;
   payload: WeekPayload;
   sourceTableIndex?: number;
   sourceCellIndexes: {
@@ -67,3 +68,4 @@ export type NormalizedMonth = {
 
 export type StoredOrders = Record<string, string[]>;
 export type StoredEventLayouts = Record<string, Record<string, string[]>>;
+export type StoredPayloadPositions = Record<string, Record<string, number>>;

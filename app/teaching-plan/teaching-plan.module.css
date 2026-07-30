@@ -191,10 +191,10 @@
 
 .editActions {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto auto auto;
   align-content: end;
   gap: 7px;
-  min-width: 250px;
+  min-width: 340px;
 }
 
 .editActions > span {
